@@ -11,34 +11,34 @@ const PostDetail = () => {
 
     useEffect(() => {
         setLoading(true);
-        // Try fetching as a user post first, then fall back to blog
-        axios.get(`${API_URL}/posts/${id}`)
+        // Prefer blogs endpoint first; fall back to legacy posts if not found
+        axios.get(`${API_URL}/blogs/${id}`)
             .then(res => {
-                const p = res.data;
+                const b = res.data;
                 const mapped = {
-                    id: p.id,
-                    title: p.title,
-                    description: p.description || '',
-                    location: p.location || '',
-                    petType: p.petType || '',
-                    status: p.status || 'LOST',
-                    imageUrl: p.imageUrl || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=1000&auto=format&fit=crop'
+                    id: b.id,
+                    title: b.title || `${b.petType || ''} ${b.status || ''}`.trim(),
+                    description: b.description || '',
+                    location: b.location || '',
+                    petType: b.petType || '',
+                    status: b.status === 'FOUND' ? 'FOUND' : 'LOST',
+                    imageUrl: b.imageUrl || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=1000&auto=format&fit=crop'
                 };
                 setPost(mapped);
                 setLoading(false);
             })
             .catch(() => {
-                axios.get(`${API_URL}/blogs/${id}`)
+                axios.get(`${API_URL}/posts/${id}`)
                     .then(res => {
-                        const b = res.data;
+                        const p = res.data;
                         const mapped = {
-                            id: b.blogId,
-                            title: `${b.petType || ''} ${b.blogType || ''}`.trim(),
-                            description: b.description || '',
-                            location: b.province || '',
-                            petType: b.petType || '',
-                            status: b.blogStatus === 'FOUND' ? 'FOUND' : 'LOST',
-                            imageUrl: b.imageUrl || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=1000&auto=format&fit=crop'
+                            id: p.id,
+                            title: p.title,
+                            description: p.description || '',
+                            location: p.location || '',
+                            petType: p.petType || '',
+                            status: p.status || 'LOST',
+                            imageUrl: p.imageUrl || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=1000&auto=format&fit=crop'
                         };
                         setPost(mapped);
                         setLoading(false);

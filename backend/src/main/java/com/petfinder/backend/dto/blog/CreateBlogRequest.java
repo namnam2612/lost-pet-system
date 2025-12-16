@@ -5,6 +5,7 @@ import com.petfinder.backend.entity.enums.BlogType;
 public class CreateBlogRequest {
 
     private BlogType blogType;     // LOST / FOUND
+    private String title;
 
     // ===== PET =====
     private String petType;
@@ -12,10 +13,12 @@ public class CreateBlogRequest {
     private String imageUrl;
 
     // ===== LOCATION =====
+    private String location; // Alias for province/address from FE
     private String province;
     private String district;
     private String ward;
     private String detailAddress;
+    private Long userId;
 
     // ===== GETTERS & SETTERS =====
 
@@ -25,6 +28,14 @@ public class CreateBlogRequest {
 
     public void setBlogType(BlogType blogType) {
         this.blogType = blogType;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
     }
 
     public String getPetType() {
@@ -41,6 +52,14 @@ public class CreateBlogRequest {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public String getLocation() {
+        return location;
+    }
+
+    public void setLocation(String location) {
+        this.location = location;
     }
 
     public String getProvince() {
@@ -81,5 +100,13 @@ public class CreateBlogRequest {
 
     public void setImageUrl(String imageUrl) {
         this.imageUrl = imageUrl;
+    }
+
+    public Long getUserId() {
+        return userId;
+    }
+
+    public void setUserId(Long userId) {
+        this.userId = userId;
     }
 }

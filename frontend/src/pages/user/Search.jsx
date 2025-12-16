@@ -18,36 +18,21 @@ const SearchPage = () => {
         if (filters.location) params.location = filters.location
         if (filters.petType) params.petType = filters.petType
 
-        const postsReq = axios.get(`${API_URL}/posts`, { params }).catch(() => ({ data: [] }))
-        const blogsReq = axios.get(`${API_URL}/blogs`).catch(() => ({ data: [] }))
-
-        Promise.all([postsReq, blogsReq])
-            .then(([postsRes, blogsRes]) => {
-                const postsData = Array.isArray(postsRes.data) ? postsRes.data.slice() : []
-                const blogsData = Array.isArray(blogsRes.data) ? blogsRes.data.slice() : []
-
-                const mappedBlogs = blogsData.map(b => ({
-                    id: b.blogId,
-                    title: `${b.petType || ''} ${b.blogType || ''}`.trim(),
+        axios.get(`${API_URL}/blogs`, { params })
+            .then(res => {
+                const blogsData = Array.isArray(res.data) ? res.data.slice() : [];
+                const mapped = blogsData.map(b => ({
+                    id: b.id,
+                    title: b.title || `${b.petType || ''} ${b.status || ''}`.trim(),
                     description: b.description || '',
-                    location: b.province || '',
+                    location: b.location || '',
                     petType: b.petType || '',
-                    status: b.blogStatus === 'FOUND' ? 'FOUND' : 'LOST',
+                    status: b.status === 'FOUND' ? 'FOUND' : 'LOST',
                     imageUrl: b.imageUrl || '',
                     createdAt: b.createdAt || null,
                     source: 'blog'
-                }))
-
-                const normalizedPosts = postsData.map(p => ({ ...p, createdAt: p.createdAt || null, source: 'post' }))
-
-                const combined = [...normalizedPosts, ...mappedBlogs]
-                combined.sort((a, b) => {
-                    const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0
-                    const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0
-                    return tb - ta
-                })
-
-                setPosts(combined)
+                }));
+                setPosts(mapped);
             })
             .catch(() => setPosts([]))
             .finally(() => setLoading(false))

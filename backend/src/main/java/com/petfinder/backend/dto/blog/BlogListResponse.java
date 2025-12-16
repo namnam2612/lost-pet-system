@@ -6,23 +6,58 @@ import com.petfinder.backend.entity.enums.BlogType;
 
 public class BlogListResponse {
 
-    private Long blogId;
+    private Long id; // Changed from blogId to id for FE compatibility
     private BlogType blogType;
+    private String title;
+    private String description;
+    private String location;
+    private String status;
 
     private String petType;
-    private String province;
     private String imageUrl;
 
     private LocalDate createdAt;
 
     // ===== GETTER / SETTER =====
 
-    public Long getBlogId() {
-        return blogId;
+    public Long getId() {
+        return id;
     }
 
-    public void setBlogId(Long blogId) {
-        this.blogId = blogId;
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
+    }
+
+    public String getLocation() {
+        return location;
+    }
+
+    public void setLocation(String location) {
+        this.location = location;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
     }
 
     public BlogType getBlogType() {
@@ -41,20 +76,12 @@ public class BlogListResponse {
         this.petType = petType;
     }
 
-    public String getProvince() {
-        return province;
-    }
-
     public String getImageUrl() {
         return imageUrl;
     }
 
     public void setImageUrl(String imageUrl) {
         this.imageUrl = imageUrl;
-    }
-
-    public void setProvince(String province) {
-        this.province = province;
     }
 
     public LocalDate getCreatedAt() {

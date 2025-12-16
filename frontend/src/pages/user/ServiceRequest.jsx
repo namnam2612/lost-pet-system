@@ -67,7 +67,8 @@ const ServiceRequest = () => {
             contactPhone: formData.contactPhone,
             lastSeenLocation: formData.lastSeenLocation,
             imageUrl: formData.imageUrl,
-            petDescription: `[${formData.petType}] Tên thú cưng: ${formData.petName} | Ngày thất lạc: ${formData.lostDate} | Email liên hệ: ${formData.contactEmail} \n\n Đặc điểm chi tiết: ${formData.petDescription}`
+            petDescription: `[${formData.petType}] Tên thú cưng: ${formData.petName} | Ngày thất lạc: ${formData.lostDate} | Email liên hệ: ${formData.contactEmail} \n\n Đặc điểm chi tiết: ${formData.petDescription}`,
+            user: user ? { id: user.id } : null
         };
 
         axios.post(`${API_URL}/services`, submitData)

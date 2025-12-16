@@ -23,39 +23,29 @@ const Home = () => {
         if (filters.location) params.location = filters.location;
         if (filters.petType) params.petType = filters.petType;
 
-        const postsReq = axios.get(`${API_URL}/posts`, { params }).catch(() => ({ data: [] }));
-        const blogsReq = axios.get(`${API_URL}/blogs`).catch(() => ({ data: [] }));
+        // fetch blogs (replaces legacy posts)
+        axios.get(`${API_URL}/blogs`, { params }).then(res => {
+            const blogsData = Array.isArray(res.data) ? res.data.slice() : [];
 
-        Promise.all([postsReq, blogsReq])
-            .then(([postsRes, blogsRes]) => {
-                const postsData = Array.isArray(postsRes.data) ? postsRes.data.slice() : [];
-                const blogsData = Array.isArray(blogsRes.data) ? blogsRes.data.slice() : [];
+            const combined = blogsData.map(b => ({
+                id: b.id, // Backend now returns 'id' in BlogListResponse
+                title: b.title || `${b.petType || ''} ${b.status || ''}`.trim(),
+                description: b.description || '',
+                location: b.location || '',
+                petType: b.petType || '',
+                status: b.status === 'FOUND' ? 'FOUND' : 'LOST',
+                imageUrl: b.imageUrl || '',
+                createdAt: b.createdAt || null,
+                source: 'blog'
+            }));
+            combined.sort((a, b) => {
+                const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                return tb - ta;
+            });
 
-                const mappedBlogs = blogsData.map(b => ({
-                    id: b.blogId,
-                    title: `${b.petType || ''} ${b.blogType || ''}`.trim(),
-                    description: b.description || '',
-                    location: b.province || '',
-                    petType: b.petType || '',
-                    status: b.blogStatus === 'FOUND' ? 'FOUND' : 'LOST',
-                    imageUrl: b.imageUrl || '',
-                    createdAt: b.createdAt || null,
-                    source: 'blog'
-                }));
-
-                // Ensure posts have createdAt too; keep original fields for posts
-                const normalizedPosts = postsData.map(p => ({ ...p, createdAt: p.createdAt || null, source: 'post' }));
-
-                const combined = [...normalizedPosts, ...mappedBlogs];
-                combined.sort((a, b) => {
-                    const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-                    const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-                    return tb - ta;
-                });
-
-                setPosts(combined.slice(0, 32));
-            })
-            .finally(() => setLoading(false));
+            setPosts(combined.slice(0, 32));
+        }).finally(() => setLoading(false));
     }
 
     useEffect(() => { fetchPosts(); }, [])

@@ -7,9 +7,10 @@ import com.petfinder.backend.entity.enums.BlogType;
 
 public class BlogDetailResponse {
 
-    private Long blogId;
+    private Long id;
     private BlogType blogType;
     private BlogStatus blogStatus;
+    private String title;
 
     private LocalDate createdAt;
 
@@ -26,12 +27,20 @@ public class BlogDetailResponse {
 
     // ===== GETTER / SETTER =====
 
-    public Long getBlogId() {
-        return blogId;
+    public Long getId() {
+        return id;
     }
 
-    public void setBlogId(Long blogId) {
-        this.blogId = blogId;
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getTitle() {
+        return title;
+    }
+
+    public void setTitle(String title) {
+        this.title = title;
     }
 
     public BlogType getBlogType() {

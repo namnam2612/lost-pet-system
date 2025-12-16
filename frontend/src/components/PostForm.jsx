@@ -38,11 +38,16 @@ const PostForm = ({ onPostCreated }) => {
         }
 
         const payload = {
-            ...formData,
-            user: { id: user.id }
+            title: formData.title,
+            blogType: 'LOST',
+            petType: formData.petType,
+            description: formData.description,
+            imageUrl: formData.imageUrl,
+            location: formData.location,
+            userId: user.id
         };
 
-        axios.post(`${API_URL}/posts`, payload)
+        axios.post(`${API_URL}/blogs`, payload)
             .then(() => {
                 alert("Đăng bài thành công!");
                 setFormData({ title: '', description: '', location: '', petType: 'DOG', imageUrl: '' });

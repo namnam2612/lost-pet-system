@@ -1,10 +1,13 @@
 package com.petfinder.backend.repository;
 
-import com.petfinder.backend.entity.SearchRequest;
+import java.util.List;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import com.petfinder.backend.entity.SearchRequest;
+
 @Repository
 public interface SearchRequestRepository extends JpaRepository<SearchRequest, Long> {
-    // Hiện tại chưa cần hàm custom nào
+    List<SearchRequest> findByUserId(Long userId);
 }

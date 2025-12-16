@@ -11,82 +11,142 @@ const AdminDashboard = () => {
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [selectedPost, setSelectedPost] = useState(null);
 
+    const STATUS_MAP = {
+        'PENDING': 'CHỜ XỬ LÝ',
+        'PROCESSING': 'ĐANG XỬ LÝ',
+        'CANCELLED': 'ĐÃ HỦY',
+        'COMPLETED': 'HOÀN THÀNH',
+        'FOUND': 'ĐÃ TÌM THẤY',
+        'NOT_FOUND': 'KHÔNG TÌM THẤY',
+        'PAYMENT_INVALID': 'THANH TOÁN LỖI',
+        'REFUNDED_NOT_FOUND': 'ĐÃ HOÀN TIỀN',
+        'REFUNDED_PAYMENT_INVALID': 'ĐÃ HOÀN TIỀN',
+        'REFUNDED': 'ĐÃ HOÀN TIỀN'
+    };
+
+    const PAYMENT_MAP = {
+        'PAID': 'ĐÃ THANH TOÁN',
+        'REFUNDED': 'ĐÃ HOÀN TIỀN',
+        'PENDING_VERIFICATION': 'CHỜ DUYỆT',
+        'PAYMENT_INVALID': 'THANH TOÁN LỖI',
+        'UNPAID': 'CHƯA THANH TOÁN'
+    };
+
     const fetchData = () => {
         axios.get(`${API_URL}/services`).then(res => setRequests(res.data)).catch(console.error);
-        axios.get(`${API_URL}/posts`).then(res => setPosts(res.data)).catch(console.error);
+        axios.get(`${API_URL}/blogs`).then(res => {
+            const mapped = res.data.map(b => ({
+                ...b,
+                id: b.id,
+                imageUrl: b.imageUrl || '',
+                title: b.title || `${b.petType ? b.petType + ' ' : ''}${b.status || ''}`.trim(),
+                location: b.location || '',
+                status: b.status === 'FOUND' ? 'FOUND' : 'LOST'
+            }));
+            setPosts(mapped);
+        }).catch(console.error);
     };
 
     useEffect(() => { fetchData(); }, []);
 
-    const updateRequestStatus = (id, status) => {
+    const updateRequestStatus = async (id, status) => {
         if (!window.confirm("Xác nhận đổi trạng thái?")) return;
-        axios.put(`${API_URL}/services/${id}/status?status=${status}`).then(() => { alert("Đã cập nhật!"); fetchData(); });
+        try {
+            await axios.put(`${API_URL}/services/${id}/status?status=${status}`);
+            fetchData();
+        } catch (error) {
+            alert("Lỗi cập nhật!");
+        }
     };
 
-    const updatePayment = (id) => {
+    const updatePayment = async (id) => {
         if (!window.confirm("Xác nhận đã thanh toán?")) return;
-        axios.put(`${API_URL}/services/${id}/payment`, { status: 'PAID' }).then(() => { alert("Đã xác nhận thanh toán!"); fetchData(); });
+        try {
+            await axios.put(`${API_URL}/services/${id}/payment`, { status: 'PAID' });
+            fetchData();
+        } catch (error) {
+            alert("Lỗi cập nhật!");
+        }
     };
 
-    const decideFound = (id, found) => {
+    const decideFound = async (id, found) => {
         const msg = found ? 'Xác nhận đã tìm thấy?' : 'Xác nhận KHÔNG tìm thấy?';
         if (!window.confirm(msg)) return;
-        axios.put(`${API_URL}/services/${id}/decision?found=${found}`).then(() => {
-            alert(found ? 'Đã đánh dấu là đã tìm thấy' : 'Đã đánh dấu là không tìm thấy');
+        try {
+            await axios.put(`${API_URL}/services/${id}/decision?found=${found}`);
             fetchData();
-        }).catch(err => { console.error(err); alert('Lỗi khi cập nhật quyết định'); });
+        } catch (error) {
+            alert('Lỗi khi cập nhật quyết định');
+        }
     };
 
     const openRefundModal = (req) => {
-        // open modal to show requester info and perform refund
         setSelectedRequest(req);
         setShowRefundModal(true);
     };
 
     const [showRefundModal, setShowRefundModal] = useState(false);
 
-    const refundRequest = (id) => {
+    const refundRequest = async (id) => {
         if (!window.confirm('Xác nhận hoàn tiền cho yêu cầu này?')) return;
-        axios.put(`${API_URL}/services/${id}/refund`).then(() => {
-            alert('Hoàn tiền thành công');
+        try {
+            await axios.put(`${API_URL}/services/${id}/refund`);
             setShowRefundModal(false);
             setSelectedRequest(null);
             fetchData();
-        }).catch(err => { console.error(err); alert('Lỗi khi hoàn tiền'); });
+        } catch (error) {
+            alert('Lỗi khi hoàn tiền');
+        }
     };
 
-    const deletePost = (id) => {
+    const deletePost = async (id) => {
         if (!window.confirm("Xóa bài viết?")) return;
-        axios.delete(`${API_URL}/posts/${id}`).then(() => { alert("Đã xóa!"); fetchData(); });
+        try {
+            await axios.delete(`${API_URL}/blogs/${id}`);
+            fetchData();
+        } catch (error) {
+            alert("Lỗi khi xóa bài viết!");
+        }
     };
 
-    const updatePostStatus = (id, status) => {
-        axios.put(`${API_URL}/posts/${id}/status?status=${status}`).then(() => { alert("Đã cập nhật!"); fetchData(); });
+    const updatePostStatus = async (id, status) => {
+        if (!window.confirm("Xác nhận đổi trạng thái bài viết?")) return;
+        const post = posts.find(p => p.id === id);
+        if (!post) return;
+
+        try {
+            // send only status to avoid accidental creation/overwrite of nested objects
+            await axios.put(`${API_URL}/blogs/${id}`, { status: status });
+            fetchData();
+        } catch (error) {
+            console.error("Lỗi cập nhật trạng thái:", error);
+            alert("Lỗi cập nhật trạng thái: " + (error.response?.data?.message || error.message));
+        }
     };
 
     return (
         <div className="min-h-screen bg-gray-50 font-sans pt-28 pb-20 px-6">
             <div className="max-w-7xl mx-auto">
                 <div className="flex flex-col md:flex-row justify-between items-center mb-8 gap-4">
-                    <h2 className="text-3xl font-black text-gray-900">🛡️ Admin Dashboard</h2>
+                    <h2 className="text-3xl font-black text-gray-900"> Admin Dashboard</h2>
                     <div className="flex gap-2">
                         <Link
                             to="/admin/service-requests"
                             className="px-6 py-2 rounded-full font-bold text-sm transition-all bg-orange-600 text-white hover:bg-orange-700 shadow-lg"
                         >
-                            💰 Quản lý thanh toán
+                            Quản lý thanh toán
                         </Link>
                         <button
                             onClick={() => setActiveTab('requests')}
                             className={`px-6 py-2 rounded-full font-bold text-sm transition-all ${activeTab === 'requests' ? 'bg-black text-white shadow-lg' : 'bg-white text-gray-500 hover:bg-gray-100'}`}
                         >
-                            🚑 Yêu cầu dịch vụ ({requests.length})
+                            Yêu cầu dịch vụ ({requests.length})
                         </button>
                         <button
                             onClick={() => setActiveTab('posts')}
                             className={`px-6 py-2 rounded-full font-bold text-sm transition-all ${activeTab === 'posts' ? 'bg-black text-white shadow-lg' : 'bg-white text-gray-500 hover:bg-gray-100'}`}
                         >
-                            📝 Quản lý bài đăng ({posts.length})
+                            Quản lý bài đăng ({posts.length})
                         </button>
                     </div>
                     <Link to="/" className="text-gray-500 hover:text-orange-600 font-bold transition-colors">Về trang chủ</Link>
@@ -96,141 +156,143 @@ const AdminDashboard = () => {
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead className="bg-gray-50 border-b border-gray-100">
-                            <tr>
-                                {activeTab === 'requests' ? (
-                                    <>
-                                        <th className="p-5 text-xs font-bold text-gray-400 uppercase tracking-wider">ID</th>
-                                        <th className="p-5 text-xs font-bold text-gray-400 uppercase tracking-wider">Liên hệ</th>
-                                        <th className="p-5 text-xs font-bold text-gray-400 uppercase tracking-wider">Thông tin</th>
-                                        <th className="p-5 text-xs font-bold text-gray-400 uppercase tracking-wider">Khu vực</th>
-                                        <th className="p-5 text-xs font-bold text-gray-400 uppercase tracking-wider">Trạng thái</th>
-                                        <th className="p-5 text-xs font-bold text-gray-400 uppercase tracking-wider">Thanh toán</th>
-                                        <th className="p-5 text-xs font-bold text-gray-400 uppercase tracking-wider">Hành động</th>
-                                    </>
-                                ) : (
-                                    <>
-                                        <th className="p-5 text-xs font-bold text-gray-400 uppercase tracking-wider">ID</th>
-                                        <th className="p-5 text-xs font-bold text-gray-400 uppercase tracking-wider">Hình ảnh</th>
-                                        <th className="p-5 text-xs font-bold text-gray-400 uppercase tracking-wider">Tiêu đề</th>
-                                        <th className="p-5 text-xs font-bold text-gray-400 uppercase tracking-wider">Trạng thái</th>
-                                        <th className="p-5 text-xs font-bold text-gray-400 uppercase tracking-wider">Hành động</th>
-                                    </>
-                                )}
-                            </tr>
+                                <tr>
+                                    {activeTab === 'requests' ? (
+                                        <>
+                                            <th className="p-5 text-xs font-bold text-gray-400 uppercase tracking-wider">ID</th>
+                                            <th className="p-5 text-xs font-bold text-gray-400 uppercase tracking-wider">Liên hệ</th>
+                                            <th className="p-5 text-xs font-bold text-gray-400 uppercase tracking-wider">Thông tin</th>
+                                            <th className="p-5 text-xs font-bold text-gray-400 uppercase tracking-wider">Khu vực</th>
+                                            <th className="p-5 text-xs font-bold text-gray-400 uppercase tracking-wider">Trạng thái</th>
+                                            <th className="p-5 text-xs font-bold text-gray-400 uppercase tracking-wider">Thanh toán</th>
+                                            <th className="p-5 text-xs font-bold text-gray-400 uppercase tracking-wider">Hành động</th>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <th className="p-5 text-xs font-bold text-gray-400 uppercase tracking-wider">ID</th>
+                                            <th className="p-5 text-xs font-bold text-gray-400 uppercase tracking-wider">Hình ảnh</th>
+                                            <th className="p-5 text-xs font-bold text-gray-400 uppercase tracking-wider">Tiêu đề</th>
+                                            <th className="p-5 text-xs font-bold text-gray-400 uppercase tracking-wider">Trạng thái</th>
+                                            <th className="p-5 text-xs font-bold text-gray-400 uppercase tracking-wider">Hành động</th>
+                                        </>
+                                    )}
+                                </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
-                            {activeTab === 'requests' ? (
-                                requests.length === 0 ? (
-                                    <tr><td colSpan="7" className="p-8 text-center text-gray-500">Chưa có yêu cầu nào</td></tr>
-                                ) : requests.map(req => (
-                                    <tr key={req.id} className="hover:bg-gray-50 transition-colors">
-                                        <td className="p-5 font-bold text-gray-900">#{req.id}</td>
-                                        <td className="p-5">
-                                            <div className="font-bold text-gray-900">{req.contactName}</div>
-                                            <div className="text-xs text-gray-500">{req.contactPhone}</div>
-                                        </td>
-                                        <td className="p-5 text-sm text-gray-600 max-w-xs truncate" title={req.petDescription}>{req.petDescription}</td>
-                                        <td className="p-5 text-sm text-gray-600">{req.lastSeenLocation}</td>
-                                        <td className="p-5">
+                                {activeTab === 'requests' ? (
+                                    requests.length === 0 ? (
+                                        <tr><td colSpan="7" className="p-8 text-center text-gray-500">Chưa có yêu cầu nào</td></tr>
+                                    ) : requests.map(req => (
+                                        <tr key={req.id} className="hover:bg-gray-50 transition-colors">
+                                            <td className="p-5 font-bold text-gray-900">#{req.id}</td>
+                                            <td className="p-5">
+                                                <div className="font-bold text-gray-900">{req.contactName}</div>
+                                                <div className="text-xs text-gray-500">{req.contactPhone}</div>
+                                            </td>
+                                            <td className="p-5 text-sm text-gray-600 max-w-xs truncate" title={req.petDescription}>{req.petDescription}</td>
+                                            <td className="p-5 text-sm text-gray-600">{req.lastSeenLocation}</td>
+                                            <td className="p-5">
                                                 <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${req.status === 'PENDING' ? 'bg-yellow-100 text-yellow-700' :
                                                     req.status === 'PROCESSING' ? 'bg-blue-100 text-blue-700' :
                                                         req.status === 'CANCELLED' ? 'bg-red-100 text-red-700' :
                                                             'bg-green-100 text-green-700'
-                                                }`}>
-                                                    {req.status}
-                                                </span>
-                                        </td>
-                                        <td className="p-5">
-                                                    <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${req.paymentStatus === 'PAID' ? 'bg-green-100 text-green-700' : req.paymentStatus === 'REFUNDED' ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-500'
                                                     }`}>
-                                                        {req.paymentStatus || 'UNPAID'}
-                                                    </span>
-                                        </td>
-                                        <td className="p-5">
-                                            <div className="flex gap-2">
-                                                <button onClick={() => setSelectedRequest(req)} className="p-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 font-bold text-xs" title="Xem chi tiết">
-                                                    <Eye size={16} />
-                                                </button>
-
-                                                {req.status === 'PENDING' && (
-                                                    <>
-                                                        <button onClick={() => updateRequestStatus(req.id, 'PROCESSING')} className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 font-bold text-xs" title="Tiếp nhận">
-                                                            <CheckCircle size={16} />
-                                                        </button>
-                                                        <button onClick={() => updateRequestStatus(req.id, 'CANCELLED')} className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 font-bold text-xs" title="Hủy yêu cầu">
-                                                            Hủy
-                                                        </button>
-                                                    </>
-                                                )}
-                                                {req.status === 'PROCESSING' && (
-                                                    <>
-                                                        {/* If payment not yet confirmed, allow manual completion as before */}
-                                                        {req.paymentStatus !== 'PAID' ? (
-                                                            <>
-                                                                <button onClick={() => updateRequestStatus(req.id, 'COMPLETED')} className="p-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 font-bold text-xs" title="Hoàn thành">
-                                                                    <CheckCircle size={16} />
-                                                                </button>
-                                                                <button onClick={() => updateRequestStatus(req.id, 'CANCELLED')} className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 font-bold text-xs" title="Hủy yêu cầu">
-                                                                    Hủy
-                                                                </button>
-                                                            </>
-                                                        ) : (
-                                                            /* If payment confirmed, show decision buttons */
-                                                            <>
-                                                                <button onClick={() => decideFound(req.id, true)} className="p-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 font-bold text-xs" title="Đã tìm thấy">
-                                                                    Đã tìm thấy
-                                                                </button>
-                                                                <button onClick={() => openRefundModal(req)} className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 font-bold text-xs" title="Chưa tìm thấy">
-                                                                    Chưa tìm thấy
-                                                                </button>
-                                                            </>
-                                                        )}
-                                                    </>
-                                                )}
-                                                {req.paymentStatus !== 'PAID' && (
-                                                    <button onClick={() => updatePayment(req.id)} className="p-2 bg-yellow-50 text-yellow-600 rounded-lg hover:bg-yellow-100 font-bold text-xs" title="Thu tiền">
-                                                        <DollarSign size={16} />
+                                                    {STATUS_MAP[req.status] || req.status}
+                                                </span>
+                                            </td>
+                                            <td className="p-5">
+                                                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${req.paymentStatus === 'PAID' ? 'bg-green-100 text-green-700' :
+                                                    req.paymentStatus === 'REFUNDED' ? 'bg-purple-100 text-purple-700' :
+                                                        req.paymentStatus === 'PENDING_VERIFICATION' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
+                                                    }`}>
+                                                    {PAYMENT_MAP[req.paymentStatus] || 'CHƯA THANH TOÁN'}
+                                                </span>
+                                            </td>
+                                            <td className="p-5">
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => setSelectedRequest(req)} className="p-2 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 font-bold text-xs" title="Xem chi tiết">
+                                                        <Eye size={16} />
                                                     </button>
-                                                )}
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))) : (
-                                posts.length === 0 ? (
-                                    <tr><td colSpan="5" className="p-8 text-center text-gray-500">Chưa có bài đăng nào</td></tr>
-                                ) : posts.map(post => (
-                                    <tr key={post.id} className="hover:bg-gray-50 transition-colors">
-                                        <td className="p-5 font-bold text-gray-900">#{post.id}</td>
-                                        <td className="p-5">
-                                            <img src={post.imageUrl || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=200&auto=format&fit=crop'} className="w-10 h-10 rounded-lg object-cover bg-gray-200" alt="" />
-                                        </td>
-                                        <td className="p-5">
-                                            <div className="font-bold text-gray-900 text-sm">{post.title}</div>
-                                            <div className="text-xs text-gray-500">{post.location}</div>
-                                        </td>
-                                        <td className="p-5">
+
+                                                    {req.status === 'PENDING' && (
+                                                        <>
+                                                            <button onClick={() => updateRequestStatus(req.id, 'PROCESSING')} className="p-2 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 font-bold text-xs" title="Tiếp nhận">
+                                                                <CheckCircle size={16} />
+                                                            </button>
+                                                            <button onClick={() => updateRequestStatus(req.id, 'CANCELLED')} className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 font-bold text-xs" title="Hủy yêu cầu">
+                                                                Hủy
+                                                            </button>
+                                                        </>
+                                                    )}
+                                                    {req.status === 'PROCESSING' && (
+                                                        <>
+                                                            {/* If payment not yet confirmed, allow manual completion as before */}
+                                                            {req.paymentStatus !== 'PAID' ? (
+                                                                <>
+                                                                    <button onClick={() => updateRequestStatus(req.id, 'COMPLETED')} className="p-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 font-bold text-xs" title="Hoàn thành">
+                                                                        <CheckCircle size={16} />
+                                                                    </button>
+                                                                    <button onClick={() => updateRequestStatus(req.id, 'CANCELLED')} className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 font-bold text-xs" title="Hủy yêu cầu">
+                                                                        Hủy
+                                                                    </button>
+                                                                </>
+                                                            ) : (
+                                                                /* If payment confirmed, show decision buttons */
+                                                                <>
+                                                                    <button onClick={() => decideFound(req.id, true)} className="p-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 font-bold text-xs" title="Đã tìm thấy">
+                                                                        Đã tìm thấy
+                                                                    </button>
+                                                                    <button onClick={() => openRefundModal(req)} className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 font-bold text-xs" title="Chưa tìm thấy">
+                                                                        Chưa tìm thấy
+                                                                    </button>
+                                                                </>
+                                                            )}
+                                                        </>
+                                                    )}
+                                                    {req.paymentStatus !== 'PAID' && (
+                                                        <button onClick={() => updatePayment(req.id)} className="p-2 bg-yellow-50 text-yellow-600 rounded-lg hover:bg-yellow-100 font-bold text-xs" title="Thu tiền">
+                                                            <DollarSign size={16} />
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))) : (
+                                    posts.length === 0 ? (
+                                        <tr><td colSpan="5" className="p-8 text-center text-gray-500">Chưa có bài đăng nào</td></tr>
+                                    ) : posts.map(post => (
+                                        <tr key={post.id} className="hover:bg-gray-50 transition-colors">
+                                            <td className="p-5 font-bold text-gray-900">#{post.id}</td>
+                                            <td className="p-5">
+                                                <img src={post.imageUrl || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=200&auto=format&fit=crop'} className="w-10 h-10 rounded-lg object-cover bg-gray-200" alt="" />
+                                            </td>
+                                            <td className="p-5">
+                                                <div className="font-bold text-gray-900 text-sm">{post.title}</div>
+                                                <div className="text-xs text-gray-500">{post.location}</div>
+                                            </td>
+                                            <td className="p-5">
                                                 <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${post.status === 'LOST' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'
-                                                }`}>
+                                                    }`}>
                                                     {post.status === 'LOST' ? 'Thất lạc' : 'Đã thấy'}
                                                 </span>
-                                        </td>
-                                        <td className="p-5">
-                                            <div className="flex gap-2">
-                                                <button onClick={() => setSelectedPost(post)} className="p-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 font-bold text-xs">
-                                                    <Eye size={16} />
-                                                </button>
-                                                {post.status === 'LOST' && (
-                                                    <button onClick={() => updatePostStatus(post.id, 'FOUND')} className="p-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 font-bold text-xs">
-                                                        Đã thấy
+                                            </td>
+                                            <td className="p-5">
+                                                <div className="flex gap-2">
+                                                    <button onClick={() => setSelectedPost(post)} className="p-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 font-bold text-xs">
+                                                        <Eye size={16} />
                                                     </button>
-                                                )}
-                                                <button onClick={() => deletePost(post.id)} className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 font-bold text-xs">
-                                                    Xóa
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                )))}
+                                                    {post.status === 'LOST' && (
+                                                        <button onClick={() => updatePostStatus(post.id, 'FOUND')} className="p-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 font-bold text-xs">
+                                                            Đã thấy
+                                                        </button>
+                                                    )}
+                                                    <button onClick={() => deletePost(post.id)} className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 font-bold text-xs">
+                                                        Xóa
+                                                    </button>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    )))}
                             </tbody>
                         </table>
                     </div>
@@ -272,12 +334,12 @@ const AdminDashboard = () => {
                                                 selectedRequest.status === 'PROCESSING' ? 'bg-blue-100 text-blue-700' :
                                                     selectedRequest.status === 'CANCELLED' ? 'bg-red-100 text-red-700' :
                                                         'bg-green-100 text-green-700'
-                                            }`}>
-                                                {selectedRequest.status}
+                                                }`}>
+                                                {STATUS_MAP[selectedRequest.status] || selectedRequest.status}
                                             </span>
                                             <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${selectedRequest.paymentStatus === 'PAID' ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-600'
-                                            }`}>
-                                                {selectedRequest.paymentStatus || 'UNPAID'}
+                                                }`}>
+                                                {PAYMENT_MAP[selectedRequest.paymentStatus] || 'CHƯA THANH TOÁN'}
                                             </span>
                                         </div>
                                     </div>
@@ -345,7 +407,9 @@ const AdminDashboard = () => {
                                 <div>
                                     <img src={selectedPost.imageUrl || 'https://via.placeholder.com/600'} alt="" className="w-full h-64 object-cover rounded-2xl bg-gray-100" />
                                     <div className="mt-3 flex gap-2">
-                                        <span className="px-3 py-1 rounded-full text-xs font-bold uppercase bg-gray-100 text-gray-700">{selectedPost.petType}</span>
+                                        <span className="px-3 py-1 rounded-full text-xs font-bold uppercase bg-gray-100 text-gray-700">
+                                            {selectedPost.petType === 'DOG' ? 'CHÓ' : selectedPost.petType === 'CAT' ? 'MÈO' : 'KHÁC'}
+                                        </span>
                                         <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${selectedPost.status === 'LOST' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700'}`}>
                                             {selectedPost.status === 'LOST' ? 'Thất lạc' : 'Đã thấy'}
                                         </span>

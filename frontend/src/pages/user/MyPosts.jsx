@@ -17,8 +17,20 @@ const MyPosts = () => {
     const fetchPosts = () => {
         if (!user?.id) return;
         setLoading(true);
-        axios.get(`${API_URL}/posts/user/${user.id}`)
-            .then(res => setPosts(res.data))
+        axios.get(`${API_URL}/blogs/user/${user.id}`)
+            .then(res => {
+                // map BlogListResponse to the shape expected by this component
+                const mapped = res.data.map(b => ({
+                    id: b.id,
+                    title: b.title || `${b.petType ? b.petType + ' ' : ''}${b.status || ''}`.trim(),
+                    description: b.description || '',
+                    location: b.location || '',
+                    petType: b.petType || 'DOG',
+                    imageUrl: b.imageUrl || '',
+                    status: b.status || 'LOST'
+                }));
+                setPosts(mapped);
+            })
             .finally(() => setLoading(false));
     };
 
@@ -38,7 +50,15 @@ const MyPosts = () => {
 
     const saveEdit = () => {
         if (!editingPost) return;
-        axios.put(`${API_URL}/posts/${editingPost.id}?userId=${user.id}`, form)
+        const payload = {
+            petType: form.petType,
+            description: form.description,
+            imageUrl: form.imageUrl,
+            location: form.location,
+            status: form.status
+        };
+
+        axios.put(`${API_URL}/blogs/${editingPost.id}?userId=${user.id}`, payload)
             .then(() => {
                 setEditingPost(null);
                 fetchPosts();
@@ -48,7 +68,7 @@ const MyPosts = () => {
 
     const deletePost = (id) => {
         if (!window.confirm("Xóa bài này?")) return;
-        axios.delete(`${API_URL}/posts/${id}?userId=${user.id}`)
+        axios.delete(`${API_URL}/blogs/${id}?userId=${user.id}`)
             .then(fetchPosts)
             .catch(() => alert("Lỗi khi xóa bài viết"));
     };
@@ -76,7 +96,7 @@ const MyPosts = () => {
                         <p className="text-gray-500">Quản lý, chỉnh sửa hoặc xóa các bài bạn đã đăng.</p>
                     </div>
                     <Link to="/" className="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-900 text-white font-semibold shadow hover:bg-black">
-                        <PlusCircle size={18}/> Đăng bài mới
+                        <PlusCircle size={18} /> Đăng bài mới
                     </Link>
                 </div>
 
@@ -106,10 +126,10 @@ const MyPosts = () => {
                                 </div>
                                 <div className="flex gap-2">
                                     <button onClick={() => startEdit(post)} className="flex items-center gap-1 px-3 py-2 rounded-lg bg-blue-50 text-blue-600 font-semibold hover:bg-blue-100">
-                                        <Edit size={16}/> Sửa
+                                        <Edit size={16} /> Sửa
                                     </button>
                                     <button onClick={() => deletePost(post.id)} className="flex items-center gap-1 px-3 py-2 rounded-lg bg-red-50 text-red-600 font-semibold hover:bg-red-100">
-                                        <Trash size={16}/> Xóa
+                                        <Trash size={16} /> Xóa
                                     </button>
                                 </div>
                             </div>
@@ -126,19 +146,19 @@ const MyPosts = () => {
                             <button onClick={() => setEditingPost(null)} className="text-gray-500 hover:text-black">×</button>
                         </div>
                         <div className="space-y-4">
-                            <input className="w-full px-4 py-3 rounded-xl border border-gray-200" placeholder="Tiêu đề" value={form.title} onChange={e => setForm({...form, title: e.target.value})}/>
-                            <input className="w-full px-4 py-3 rounded-xl border border-gray-200" placeholder="Khu vực" value={form.location} onChange={e => setForm({...form, location: e.target.value})}/>
-                            <select className="w-full px-4 py-3 rounded-xl border border-gray-200" value={form.petType} onChange={e => setForm({...form, petType: e.target.value})}>
+                            <input className="w-full px-4 py-3 rounded-xl border border-gray-200" placeholder="Tiêu đề" value={form.title} onChange={e => setForm({ ...form, title: e.target.value })} />
+                            <input className="w-full px-4 py-3 rounded-xl border border-gray-200" placeholder="Khu vực" value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} />
+                            <select className="w-full px-4 py-3 rounded-xl border border-gray-200" value={form.petType} onChange={e => setForm({ ...form, petType: e.target.value })}>
                                 <option value="DOG">Chó</option>
                                 <option value="CAT">Mèo</option>
                                 <option value="OTHER">Khác</option>
                             </select>
-                            <select className="w-full px-4 py-3 rounded-xl border border-gray-200" value={form.status} onChange={e => setForm({...form, status: e.target.value})}>
+                            <select className="w-full px-4 py-3 rounded-xl border border-gray-200" value={form.status} onChange={e => setForm({ ...form, status: e.target.value })}>
                                 <option value="LOST">Thất lạc</option>
                                 <option value="FOUND">Đã thấy</option>
                             </select>
-                            <input className="w-full px-4 py-3 rounded-xl border border-gray-200" placeholder="Link ảnh" value={form.imageUrl} onChange={e => setForm({...form, imageUrl: e.target.value})}/>
-                            <textarea className="w-full px-4 py-3 rounded-xl border border-gray-200 min-h-[120px]" placeholder="Mô tả" value={form.description} onChange={e => setForm({...form, description: e.target.value})}/>
+                            <input className="w-full px-4 py-3 rounded-xl border border-gray-200" placeholder="Link ảnh" value={form.imageUrl} onChange={e => setForm({ ...form, imageUrl: e.target.value })} />
+                            <textarea className="w-full px-4 py-3 rounded-xl border border-gray-200 min-h-[120px]" placeholder="Mô tả" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} />
                             <div className="flex justify-end gap-3">
                                 <button onClick={() => setEditingPost(null)} className="px-4 py-2 rounded-lg border border-gray-200 text-gray-600">Hủy</button>
                                 <button onClick={saveEdit} className="px-4 py-2 rounded-lg bg-blue-600 text-white font-bold">Lưu</button>
@@ -152,8 +172,3 @@ const MyPosts = () => {
 };
 
 export default MyPosts;
-
-
-
-
-

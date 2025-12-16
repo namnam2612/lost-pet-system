@@ -10,9 +10,41 @@ const PostDetail = () => {
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
+        setLoading(true);
+        // Try fetching as a user post first, then fall back to blog
         axios.get(`${API_URL}/posts/${id}`)
-            .then(res => { setPost(res.data); setLoading(false); })
-            .catch(() => setLoading(false));
+            .then(res => {
+                const p = res.data;
+                const mapped = {
+                    id: p.id,
+                    title: p.title,
+                    description: p.description || '',
+                    location: p.location || '',
+                    petType: p.petType || '',
+                    status: p.status || 'LOST',
+                    imageUrl: p.imageUrl || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=1000&auto=format&fit=crop'
+                };
+                setPost(mapped);
+                setLoading(false);
+            })
+            .catch(() => {
+                axios.get(`${API_URL}/blogs/${id}`)
+                    .then(res => {
+                        const b = res.data;
+                        const mapped = {
+                            id: b.blogId,
+                            title: `${b.petType || ''} ${b.blogType || ''}`.trim(),
+                            description: b.description || '',
+                            location: b.province || '',
+                            petType: b.petType || '',
+                            status: b.blogStatus === 'FOUND' ? 'FOUND' : 'LOST',
+                            imageUrl: b.imageUrl || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=1000&auto=format&fit=crop'
+                        };
+                        setPost(mapped);
+                        setLoading(false);
+                    })
+                    .catch(() => setLoading(false));
+            });
     }, [id]);
 
     if (loading) return <div className="text-center mt-20">Đang tải dữ liệu...</div>;

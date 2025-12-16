@@ -26,6 +26,20 @@ export const AuthProvider = ({ children }) => {
         }
     }, [user]);
 
+    // Listen for updates from other parts (like MyAccount save)
+    useEffect(() => {
+        const handleStorageUpdate = () => {
+            try {
+                const updated = localStorage.getItem(STORAGE_KEY);
+                if (updated) setUser(JSON.parse(updated));
+            } catch {
+                /* ignore */
+            }
+        };
+        window.addEventListener('pf_auth_user_updated', handleStorageUpdate);
+        return () => window.removeEventListener('pf_auth_user_updated', handleStorageUpdate);
+    }, []);
+
     const login = async ({ email, password }) => {
         setLoading(true); setError('');
         try {

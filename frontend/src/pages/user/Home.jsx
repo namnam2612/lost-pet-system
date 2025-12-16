@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import axios from 'axios'
 import { Link } from 'react-router-dom';
 import { Search, MapPin, Filter, PlusCircle, XCircle, ArrowRight, Heart, ShieldCheck, Users } from 'lucide-react';
@@ -10,6 +10,9 @@ const Home = () => {
     const [loading, setLoading] = useState(true)
     const [showForm, setShowForm] = useState(false);
     const [filters, setFilters] = useState({ title: '', location: '', petType: '' });
+    // carousel/pagination state
+    const [currentPage, setCurrentPage] = useState(0);
+    const autoPlayRef = useRef(null);
 
     const handleFilterChange = (e) => setFilters({ ...filters, [e.target.name]: e.target.value });
 
@@ -20,19 +23,61 @@ const Home = () => {
         if (filters.location) params.location = filters.location;
         if (filters.petType) params.petType = filters.petType;
 
-        axios.get(`${API_URL}/posts`, { params })
-            .then(res => { setPosts(res.data); setLoading(false); })
-            .catch(() => {
-                setPosts([
-                    {id: 1, title: 'Lạc mất mèo Mun', location: 'Hà Nội', petType: 'CAT', status: 'LOST', description: 'Mèo đen, mắt vàng, lạc ở khu vực Thanh Xuân', imageUrl: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?q=80&w=1000&auto=format&fit=crop'},
-                    {id: 2, title: 'Tìm chó Corgi', location: 'TP.HCM', petType: 'DOG', status: 'LOST', description: 'Chó Corgi mông to, chân ngắn, lạc ở Quận 1', imageUrl: 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=1000&auto=format&fit=crop'},
-                    {id: 3, title: 'Nhặt được chó Phốc', location: 'Đà Nẵng', petType: 'DOG', status: 'FOUND', description: 'Thấy em lang thang ở công viên', imageUrl: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?q=80&w=1000&auto=format&fit=crop'}
-                ]);
-                setLoading(false);
-            });
+        const postsReq = axios.get(`${API_URL}/posts`, { params }).catch(() => ({ data: [] }));
+        const blogsReq = axios.get(`${API_URL}/blogs`).catch(() => ({ data: [] }));
+
+        Promise.all([postsReq, blogsReq])
+            .then(([postsRes, blogsRes]) => {
+                const postsData = Array.isArray(postsRes.data) ? postsRes.data.slice() : [];
+                const blogsData = Array.isArray(blogsRes.data) ? blogsRes.data.slice() : [];
+
+                const mappedBlogs = blogsData.map(b => ({
+                    id: b.blogId,
+                    title: `${b.petType || ''} ${b.blogType || ''}`.trim(),
+                    description: b.description || '',
+                    location: b.province || '',
+                    petType: b.petType || '',
+                    status: b.blogStatus === 'FOUND' ? 'FOUND' : 'LOST',
+                    imageUrl: b.imageUrl || '',
+                    createdAt: b.createdAt || null,
+                    source: 'blog'
+                }));
+
+                // Ensure posts have createdAt too; keep original fields for posts
+                const normalizedPosts = postsData.map(p => ({ ...p, createdAt: p.createdAt || null, source: 'post' }));
+
+                const combined = [...normalizedPosts, ...mappedBlogs];
+                combined.sort((a, b) => {
+                    const ta = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+                    const tb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+                    return tb - ta;
+                });
+
+                setPosts(combined.slice(0, 32));
+            })
+            .finally(() => setLoading(false));
     }
 
     useEffect(() => { fetchPosts(); }, [])
+
+    // carousel / autoplay settings
+    const POSTS_PER_PAGE = 8;
+    const MAX_PAGES = 4;
+    const pages = Math.min(MAX_PAGES, Math.max(1, Math.ceil(posts.length / POSTS_PER_PAGE)));
+
+    // reset page when posts change
+    useEffect(() => {
+        setCurrentPage(0);
+    }, [posts.length]);
+
+    // autoplay interval
+    useEffect(() => {
+        if (pages <= 1) return;
+        autoPlayRef.current = setInterval(() => {
+            setCurrentPage(prev => (prev + 1) % pages);
+        }, 3000);
+        return () => clearInterval(autoPlayRef.current);
+    }, [pages]);
 
     return (
         <div className="min-h-screen bg-gray-50 font-sans">
@@ -47,7 +92,7 @@ const Home = () => {
                             <Heart size={14} className="fill-orange-700" /> Cộng đồng yêu thương
                         </span>
                         <h1 className="text-5xl lg:text-7xl font-black text-gray-900 mb-6 leading-[1.1] tracking-tight">
-                            Đưa thú cưng <br/> <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-600">trở về nhà.</span>
+                            Đưa thú cưng <br /> <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-red-600">trở về nhà.</span>
                         </h1>
                         <p className="text-lg text-gray-600 mb-10 max-w-lg mx-auto lg:mx-0 leading-relaxed">
                             Nền tảng tìm kiếm thú cưng thất lạc số 1 Việt Nam. Kết nối sức mạnh cộng đồng để mỗi người bạn nhỏ đều được an toàn.
@@ -58,7 +103,7 @@ const Home = () => {
                                 onClick={() => setShowForm(!showForm)}
                                 className={`flex items-center justify-center gap-2 px-8 py-4 rounded-full font-bold shadow-xl transition-all transform hover:-translate-y-1 ${showForm ? 'bg-gray-200 text-gray-800' : 'bg-gray-900 text-white shadow-orange-200'}`}
                             >
-                                {showForm ? <><XCircle size={20}/> Đóng Biểu Mẫu</> : <><PlusCircle size={20}/> Đăng Tin Ngay</>}
+                                {showForm ? <><XCircle size={20} /> Đóng Biểu Mẫu</> : <><PlusCircle size={20} /> Đăng Tin Ngay</>}
                             </button>
                             <Link to="/request-service" className="flex items-center justify-center gap-2 bg-white text-gray-900 border-2 border-gray-100 px-8 py-4 rounded-full font-bold hover:border-orange-500 hover:text-orange-600 transition-all">
                                 Dịch Vụ Cứu Hộ
@@ -68,8 +113,8 @@ const Home = () => {
 
                     {/* Hero Image Collage */}
                     <div className="hidden lg:block relative h-[500px]">
-                        <img src="https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=1000&auto=format&fit=crop" className="absolute top-0 right-10 w-72 h-96 object-cover rounded-[40px] shadow-2xl rotate-3 border-4 border-white z-10" alt="Dog"/>
-                        <img src="https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?q=80&w=1000&auto=format&fit=crop" className="absolute bottom-10 left-20 w-64 h-80 object-cover rounded-[40px] shadow-2xl -rotate-6 border-4 border-white" alt="Cat"/>
+                        <img src="https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=1000&auto=format&fit=crop" className="absolute top-0 right-10 w-72 h-96 object-cover rounded-[40px] shadow-2xl rotate-3 border-4 border-white z-10" alt="Dog" />
+                        <img src="https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?q=80&w=1000&auto=format&fit=crop" className="absolute bottom-10 left-20 w-64 h-80 object-cover rounded-[40px] shadow-2xl -rotate-6 border-4 border-white" alt="Cat" />
                     </div>
                 </div>
             </div>
@@ -105,38 +150,14 @@ const Home = () => {
                 </div>
             </div>
 
-            {/* 3. THANH TÌM KIẾM */}
-            <div className="max-w-7xl mx-auto px-6 -mt-8 relative z-20">
-                <div className="bg-white p-4 rounded-2xl shadow-xl shadow-gray-200/50 border border-gray-100 flex flex-col md:flex-row gap-4 items-center">
-                    {/* ... (Giữ nguyên code thanh tìm kiếm) ... */}
-                    <div className="flex-1 flex items-center gap-3 bg-gray-50 px-4 py-3 rounded-xl border border-transparent focus-within:border-orange-500 transition-all w-full">
-                        <Search className="text-gray-400" size={20} />
-                        <input type="text" placeholder="Tìm theo tên..." className="bg-transparent w-full outline-none text-gray-700 font-medium" name="title" value={filters.title} onChange={handleFilterChange} />
-                    </div>
-                    <div className="flex-1 flex items-center gap-3 bg-gray-50 px-4 py-3 rounded-xl border border-transparent focus-within:border-orange-500 transition-all w-full">
-                        <MapPin className="text-gray-400" size={20} />
-                        <input type="text" placeholder="Khu vực..." className="bg-transparent w-full outline-none text-gray-700 font-medium" name="location" value={filters.location} onChange={handleFilterChange} />
-                    </div>
-                    <div className="w-full md:w-48 relative">
-                        <select className="w-full bg-gray-50 px-4 py-3 rounded-xl outline-none focus:border-orange-500 border border-transparent appearance-none cursor-pointer font-medium" name="petType" value={filters.petType} onChange={handleFilterChange}>
-                            <option value="">Tất cả loài</option>
-                            <option value="DOG">🐶 Chó</option>
-                            <option value="CAT">🐱 Mèo</option>
-                        </select>
-                        <Filter className="absolute right-4 top-3.5 text-gray-400 pointer-events-none" size={16} />
-                    </div>
-                    <button className="w-full md:w-auto bg-orange-600 hover:bg-orange-700 text-white px-8 py-3 rounded-xl font-bold transition-all shadow-lg shadow-orange-200" onClick={fetchPosts}>
-                        Tìm kiếm
-                    </button>
-                </div>
-            </div>
+
 
             {/* 4. DANH SÁCH BÀI VIẾT */}
             <div className="max-w-7xl mx-auto px-6 py-24">
                 <div className="flex items-center justify-between mb-10">
                     <h2 className="text-3xl font-bold text-gray-900">Tin Mới Nhất</h2>
                     <Link to="/search" className="text-orange-600 font-bold hover:underline flex items-center gap-1">
-                        Xem tất cả <ArrowRight size={16}/>
+                        Xem tất cả <ArrowRight size={16} />
                     </Link>
                 </div>
 
@@ -146,35 +167,59 @@ const Home = () => {
                         <p className="text-gray-500">Đang tải...</p>
                     </div>
                 ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                        {posts.map(post => (
-                            <div key={post.id} className="group bg-white rounded-3xl overflow-hidden border border-gray-100 hover:shadow-2xl hover:-translate-y-2 transition-all duration-300">
-                                <div className="relative h-72 overflow-hidden">
-                                    <Link to={`/posts/${post.id}`}>
-                                        <img src={post.imageUrl || "https://via.placeholder.com/500"} alt={post.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"/>
-                                    </Link>
-                                    <div className="absolute top-4 left-4">
-                                        <span className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider text-white shadow-lg ${post.status === 'LOST' ? 'bg-red-500' : 'bg-green-500'}`}>
-                                            {post.status === 'LOST' ? 'Thất lạc' : 'Đã tìm thấy'}
-                                        </span>
+                    <div>
+                        <div
+                            className="relative overflow-hidden"
+                            onMouseEnter={() => clearInterval(autoPlayRef.current)}
+                            onMouseLeave={() => {
+                                if (pages > 1) {
+                                    autoPlayRef.current = setInterval(() => setCurrentPage(p => (p + 1) % pages), 3000);
+                                }
+                            }}
+                        >
+                            <div className="flex transition-transform duration-700 ease-in-out" style={{ width: `${pages * 100}%`, transform: `translateX(-${currentPage * (100 / pages)}%)` }}>
+                                {Array.from({ length: pages }).map((_, pageIndex) => (
+                                    <div key={pageIndex} style={{ width: `${100 / pages}%` }} className="px-0">
+                                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
+                                            {posts.slice(pageIndex * POSTS_PER_PAGE, (pageIndex + 1) * POSTS_PER_PAGE).map(post => (
+                                                <div key={post.id} className="group bg-white rounded-3xl overflow-hidden border border-gray-100 hover:shadow-2xl hover:-translate-y-2 transition-all duration-300">
+                                                    <div className="relative h-72 overflow-hidden">
+                                                        <Link to={`/${post.source === 'post' ? 'posts' : 'blogs'}/${post.id}`}>
+                                                            <img src={post.imageUrl || "https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=1000&auto=format&fit=crop"} alt={post.title} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" />
+                                                        </Link>
+                                                        <div className="absolute top-4 left-4">
+                                                            <span className={`px-3 py-1.5 rounded-full text-[10px] font-black uppercase tracking-wider text-white shadow-lg ${post.status === 'LOST' ? 'bg-red-500' : 'bg-green-500'}`}>
+                                                                {post.status === 'LOST' ? 'Thất lạc' : 'Đã tìm thấy'}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                    <div className="p-6">
+                                                        <div className="flex items-center gap-2 text-gray-400 text-xs font-bold uppercase tracking-wider mb-2">
+                                                            <MapPin size={12} /> {post.location}
+                                                        </div>
+                                                        <h3 className="font-bold text-xl text-gray-900 mb-3 line-clamp-1 group-hover:text-orange-600 transition-colors">
+                                                            <Link to={`/${post.source === 'post' ? 'posts' : 'blogs'}/${post.id}`}>{post.title}</Link>
+                                                        </h3>
+                                                        <p className="text-gray-500 text-sm line-clamp-2 mb-6 leading-relaxed">
+                                                            {post.description}
+                                                        </p>
+                                                        <Link to={`/${post.source === 'post' ? 'posts' : 'blogs'}/${post.id}`} className="w-full block text-center py-3 rounded-xl bg-gray-50 text-gray-900 font-bold text-sm hover:bg-black hover:text-white transition-all">
+                                                            Xem chi tiết
+                                                        </Link>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
-                                <div className="p-6">
-                                    <div className="flex items-center gap-2 text-gray-400 text-xs font-bold uppercase tracking-wider mb-2">
-                                        <MapPin size={12} /> {post.location}
-                                    </div>
-                                    <h3 className="font-bold text-xl text-gray-900 mb-3 line-clamp-1 group-hover:text-orange-600 transition-colors">
-                                        <Link to={`/posts/${post.id}`}>{post.title}</Link>
-                                    </h3>
-                                    <p className="text-gray-500 text-sm line-clamp-2 mb-6 leading-relaxed">
-                                        {post.description}
-                                    </p>
-                                    <Link to={`/posts/${post.id}`} className="w-full block text-center py-3 rounded-xl bg-gray-50 text-gray-900 font-bold text-sm hover:bg-black hover:text-white transition-all">
-                                        Xem chi tiết
-                                    </Link>
-                                </div>
+                                ))}
                             </div>
-                        ))}
+
+                            <div className="flex justify-center gap-3 mt-6">
+                                {Array.from({ length: pages }).map((_, i) => (
+                                    <button key={i} onClick={() => setCurrentPage(i)} className={`w-3 h-3 rounded-full ${i === currentPage ? 'bg-orange-600' : 'bg-gray-300'}`} aria-label={`Go to page ${i + 1}`} />
+                                ))}
+                            </div>
+                        </div>
                     </div>
                 )}
             </div>

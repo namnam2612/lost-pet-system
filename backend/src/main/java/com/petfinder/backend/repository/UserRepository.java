@@ -1,12 +1,18 @@
 package com.petfinder.backend.repository;
 
-import com.petfinder.backend.entity.User;
+import java.util.Optional;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.util.Optional;
+import com.petfinder.backend.entity.User;
 
 public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmail(String email);
     boolean existsByEmail(String email);
+    Optional<User> findFirstByRoleIgnoreCase(String role);
 }
+
+
+
+
 

@@ -45,7 +45,9 @@ const Navbar = () => {
                     <div className="hidden md:flex items-center gap-1 bg-gray-50 p-1 rounded-full border border-gray-100">
                         <NavLink to="/" label="Trang chủ" active={isActive('/')} />
                         <NavLink to="/search" label="Tìm thú cưng" active={isActive('/search')} />
-                        <NavLink to="/request-service" label="Dịch vụ cứu hộ" active={isActive('/request-service')} />
+                        {user?.role?.toLowerCase() !== 'admin' && (
+                            <NavLink to="/request-service" label="Dịch vụ cứu hộ" active={isActive('/request-service')} />
+                        )}
                         {user && <NavLink to="/my-account" label="Tài khoản" active={isActive('/my-account')} />}
                         {user && <NavLink to="/my-posts" label="Bài của tôi" active={isActive('/my-posts')} />}
                         {user?.role?.toLowerCase() === 'admin' && <NavLink to="/admin" label="Admin" active={isActive('/admin')} />}
@@ -89,7 +91,9 @@ const Navbar = () => {
                         <div className="flex flex-col gap-6 text-lg font-bold text-gray-800">
                             <Link to="/" onClick={() => setMobileMenuOpen(false)}>Trang chủ</Link>
                             <Link to="/search" onClick={() => setMobileMenuOpen(false)}>Tìm thú cưng</Link>
-                            <Link to="/request-service" onClick={() => setMobileMenuOpen(false)}>Dịch vụ cứu hộ</Link>
+                            {user?.role?.toLowerCase() !== 'admin' && (
+                                <Link to="/request-service" onClick={() => setMobileMenuOpen(false)}>Dịch vụ cứu hộ</Link>
+                            )}
                             {user && <Link to="/my-account" onClick={() => setMobileMenuOpen(false)}>Tài khoản</Link>}
                             {user && <Link to="/my-posts" onClick={() => setMobileMenuOpen(false)}>Bài của tôi</Link>}
                             {user?.role?.toLowerCase() === 'admin' && <Link to="/admin" onClick={() => setMobileMenuOpen(false)}>Admin Dashboard</Link>}

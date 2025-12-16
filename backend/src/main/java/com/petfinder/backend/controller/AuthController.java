@@ -1,13 +1,17 @@
 package com.petfinder.backend.controller;
 
-import com.petfinder.backend.dto.AuthResponse;
-import com.petfinder.backend.entity.User;
-import com.petfinder.backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.server.ResponseStatusException;
+
+import com.petfinder.backend.dto.AuthResponse;
+import com.petfinder.backend.entity.User;
+import com.petfinder.backend.repository.UserRepository;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -36,7 +40,8 @@ public class AuthController {
         user.setRole("USER");
 
         User saved = userRepository.save(user);
-        return new AuthResponse(saved.getId(), saved.getName(), saved.getEmail(), saved.getPhone(), saved.getRole());
+        return new AuthResponse(saved.getId(), saved.getName(), saved.getEmail(), saved.getPhone(), saved.getRole(),
+            saved.getBankName(), saved.getBankAccountNumber(), saved.getBankAccountHolder(), saved.getQrImageUrl());
     }
 
     @PostMapping("/login")
@@ -48,7 +53,8 @@ public class AuthController {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Sai email hoặc mật khẩu");
         }
 
-        return new AuthResponse(user.getId(), user.getName(), user.getEmail(), user.getPhone(), user.getRole());
+        return new AuthResponse(user.getId(), user.getName(), user.getEmail(), user.getPhone(), user.getRole(),
+            user.getBankName(), user.getBankAccountNumber(), user.getBankAccountHolder(), user.getQrImageUrl());
     }
 
     public record RegisterRequest(String name, String email, String password, String phone) {}

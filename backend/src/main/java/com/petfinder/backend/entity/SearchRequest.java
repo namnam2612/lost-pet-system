@@ -1,7 +1,13 @@
 package com.petfinder.backend.entity;
 
-import jakarta.persistence.*;
 import java.time.LocalDateTime;
+
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "search_requests")
@@ -23,6 +29,9 @@ public class SearchRequest {
     // 👇 MỚI THÊM: Trạng thái thanh toán
     @Column(name = "payment_status")
     private String paymentStatus = "UNPAID";
+
+    @Column(name = "bill_image_url")
+    private String billImageUrl;
 
     @Column(name = "created_at")
     private LocalDateTime createdAt = LocalDateTime.now();
@@ -97,6 +106,14 @@ public class SearchRequest {
     public void setPaymentStatus(String paymentStatus) {
         this.paymentStatus = paymentStatus;
     }
+
+    public String getBillImageUrl() {
+        return billImageUrl;
+    }
+
+    public void setBillImageUrl(String billImageUrl) {
+        this.billImageUrl = billImageUrl;
+    }
     // ------------------------------------------------
 
     public LocalDateTime getCreatedAt() {
@@ -105,5 +122,12 @@ public class SearchRequest {
 
     public void setCreatedAt(LocalDateTime createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public Long getPrice() {
+        return null;
+    }
+
+    public void setPrice(long l) {
     }
 }

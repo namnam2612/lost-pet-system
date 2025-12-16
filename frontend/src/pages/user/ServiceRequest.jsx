@@ -1,10 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { ShieldCheck, ArrowRight } from 'lucide-react';
 import { API_URL } from '../../api/config';
+import { useAuth } from '../../context/AuthContext';
+import PaymentModal from '../../components/PaymentModal';
 
 const ServiceRequest = () => {
+    const { user } = useAuth();
+
     const [formData, setFormData] = useState({
         contactName: '',
         contactPhone: '',
@@ -17,6 +21,23 @@ const ServiceRequest = () => {
         imageUrl: ''
     });
     const [uploading, setUploading] = useState(false);
+    const [showForm, setShowForm] = useState(false);
+    const formRef = useRef(null);
+    const [requests, setRequests] = useState([]);
+    const [loadingRequests, setLoadingRequests] = useState(false);
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [lastRequestId, setLastRequestId] = useState(null);
+
+    // auto-fill form from user data when user logs in
+    useEffect(() => {
+        if (user) {
+            setFormData(prev => ({
+                ...prev,
+                contactName: user.name || prev.contactName,
+                contactPhone: user.phone || prev.contactPhone
+            }));
+        }
+    }, [user?.id]);
 
     const handleFileChange = (e) => {
         const file = e.target.files[0];
@@ -49,17 +70,59 @@ const ServiceRequest = () => {
             petDescription: `[${formData.petType}] Tên thú cưng: ${formData.petName} | Ngày thất lạc: ${formData.lostDate} | Email liên hệ: ${formData.contactEmail} \n\n Đặc điểm chi tiết: ${formData.petDescription}`
         };
 
-        axios.post(`${API_URL}/search-requests`, submitData)
-            .then(() => {
-                alert("Đã gửi yêu cầu thành công! Đội cứu hộ sẽ liên hệ bạn sớm.");
+        axios.post(`${API_URL}/services`, submitData)
+            .then(res => {
+                const newRequestId = res.data?.id;
+                setLastRequestId(newRequestId);
                 setFormData({
                     contactName: '', contactPhone: '', contactEmail: '',
                     petName: '', petType: 'DOG', lostDate: '',
                     petDescription: '', lastSeenLocation: '', imageUrl: ''
                 });
+                setShowForm(false);
+                // show payment modal
+                setShowPaymentModal(true);
             })
             .catch(() => alert("Lỗi khi gửi yêu cầu!"));
     };
+
+    const fetchRequests = () => {
+        setLoadingRequests(true);
+        axios.get(`${API_URL}/services`)
+            .then(res => {
+                const data = Array.isArray(res.data) ? res.data : [];
+                // if user exists, filter by phone number to show user's own requests
+                if (user?.phone) {
+                    console.log('Filtering requests by phone:', user.phone);
+                    console.log('All requests from API:', data);
+                    const filtered = data.filter(r => {
+                        console.log('Comparing:', r.contactPhone, '===', user.phone, '?', r.contactPhone === user.phone);
+                        return r.contactPhone === user.phone;
+                    });
+                    console.log('Filtered result:', filtered);
+                    setRequests(filtered);
+                } else {
+                    console.log('No user phone, showing all:', data);
+                    setRequests(data);
+                }
+            })
+            .catch(err => {
+                console.error('Error fetching requests:', err);
+                setRequests([]);
+            })
+            .finally(() => setLoadingRequests(false));
+    }
+
+    useEffect(() => {
+        fetchRequests();
+    }, [user?.phone]);
+
+    const openFormAndScroll = () => {
+        setShowForm(true);
+        setTimeout(() => {
+            formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }, 150);
+    }
 
     return (
         <div className="min-h-screen bg-gray-50 pt-28 pb-20">
@@ -78,80 +141,130 @@ const ServiceRequest = () => {
                     </div>
 
                     <div className="p-8 md:p-12">
-                        <form onSubmit={handleSubmit} className="space-y-8">
-
-                            <div>
-                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                    <span className="w-6 h-6 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-xs">1</span>
-                                    Thông tin liên hệ
-                                </h3>
-                                <div className="grid md:grid-cols-2 gap-6">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">Họ tên bạn</label>
-                                        <input type="text" className="w-full px-4 py-3 rounded-xl bg-gray-50 border-gray-200 border focus:border-orange-500 transition-all outline-none" name="contactName" value={formData.contactName} onChange={handleChange} required />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">Số điện thoại</label>
-                                        <input type="text" className="w-full px-4 py-3 rounded-xl bg-gray-50 border-gray-200 border focus:border-orange-500 transition-all outline-none" name="contactPhone" value={formData.contactPhone} onChange={handleChange} required />
-                                    </div>
-                                    <div className="md:col-span-2">
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">Email (Để nhận thông báo)</label>
-                                        <input type="email" className="w-full px-4 py-3 rounded-xl bg-gray-50 border-gray-200 border focus:border-orange-500 transition-all outline-none" name="contactEmail" value={formData.contactEmail} onChange={handleChange} placeholder="example@gmail.com" />
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div>
-                                <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
-                                    <span className="w-6 h-6 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-xs">2</span>
-                                    Thông tin thú cưng
-                                </h3>
-                                <div className="space-y-6">
-                                    <div className="grid md:grid-cols-2 gap-6">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">Tên thú cưng</label>
-                                            <input type="text" className="w-full px-4 py-3 rounded-xl bg-gray-50 border-gray-200 border focus:border-orange-500 transition-all outline-none" name="petName" value={formData.petName} onChange={handleChange} placeholder="VD: Miu, Lu..." required />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">Loại</label>
-                                            <select className="w-full px-4 py-3 rounded-xl bg-gray-50 border-gray-200 border focus:border-orange-500 transition-all outline-none cursor-pointer" name="petType" value={formData.petType} onChange={handleChange}>
-                                                <option value="DOG">Chó</option>
-                                                <option value="CAT">Mèo</option>
-                                                <option value="OTHER">Khác</option>
-                                            </select>
-                                        </div>
-                                    </div>
-
-                                    <div className="grid md:grid-cols-2 gap-6">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">Thời gian thất lạc</label>
-                                            <input type="datetime-local" className="w-full px-4 py-3 rounded-xl bg-gray-50 border-gray-200 border focus:border-orange-500 transition-all outline-none" name="lostDate" value={formData.lostDate} onChange={handleChange} required />
-                                        </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-700 mb-2">Khu vực nhìn thấy lần cuối</label>
-                                            <input type="text" className="w-full px-4 py-3 rounded-xl bg-gray-50 border-gray-200 border focus:border-orange-500 transition-all outline-none" name="lastSeenLocation" value={formData.lastSeenLocation} onChange={handleChange} placeholder="Số nhà, đường, quận..." required />
-                                        </div>
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">Hình ảnh nhận dạng</label>
-                                        <input type="file" className="w-full px-4 py-2.5 rounded-xl bg-gray-50 border-gray-200 border focus:border-orange-500 transition-all outline-none file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100" onChange={handleFileChange} />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-700 mb-2">Mô tả đặc điểm chi tiết</label>
-                                        <textarea className="w-full px-4 py-3 rounded-xl bg-gray-50 border-gray-200 border focus:border-orange-500 transition-all outline-none min-h-[100px]" name="petDescription" value={formData.petDescription} onChange={handleChange} placeholder="Màu lông, giống loài, cân nặng, đặc điểm riêng..." required></textarea>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <button type="submit" className="w-full bg-orange-600 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-orange-700 transition-all disabled:opacity-50 flex justify-center items-center gap-2" disabled={uploading}>
-                                {uploading ? 'Đang tải ảnh...' : <>🚀 GỬI YÊU CẦU NGAY</>}
+                        <div className="mb-6 text-center">
+                            <button onClick={openFormAndScroll} className="inline-flex items-center gap-2 px-6 py-3 rounded-full bg-orange-600 text-white font-bold hover:bg-orange-700 transition-all">
+                                🚑 Gửi yêu cầu cứu hộ
                             </button>
-                        </form>
+                        </div>
+
+                        {/* User's requests list */}
+                        <div className="mb-8">
+                            <h3 className="text-lg font-bold text-gray-900 mb-4">Yêu cầu đã gửi</h3>
+                            {loadingRequests ? (
+                                <div className="text-gray-500">Đang tải...</div>
+                            ) : (
+                                <div className="space-y-4">
+                                    {requests.length === 0 ? (
+                                        <div className="text-sm text-gray-500">Bạn chưa gửi yêu cầu nào. (Đăng nhập để theo dõi chính xác)</div>
+                                    ) : (
+                                        requests.map(r => (
+                                            <div key={r.id} className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                                                <div className="flex items-center justify-between mb-2">
+                                                    <div className="text-sm font-semibold">Yêu cầu #{r.id}</div>
+                                                    <div className="text-xs font-bold px-2 py-1 rounded-full text-white" style={{ background: r.status === 'PENDING' ? '#F59E0B' : r.status === 'PROCESSING' ? '#3B82F6' : '#10B981' }}>{r.status}</div>
+                                                </div>
+                                                <div className="text-sm text-gray-600 mb-1">Khu vực: {r.lastSeenLocation}</div>
+                                                <div className="text-sm text-gray-600 mb-1">Mô tả: {r.petDescription?.slice(0, 200)}</div>
+                                                <div className="text-xs text-gray-400">Ngày gửi: {r.createdAt ? new Date(r.createdAt).toLocaleString() : '-'}</div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        <div ref={formRef} className={`transition-all duration-500 ease-in-out bg-white border-t border-gray-100 ${showForm ? 'max-h-[1200px] opacity-100 py-10' : 'max-h-0 opacity-0 overflow-hidden'}`}>
+                            <form onSubmit={handleSubmit} className="space-y-8">
+
+                                <div>
+                                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                        <span className="w-6 h-6 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-xs">1</span>
+                                        Thông tin liên hệ
+                                    </h3>
+                                    <div className="grid md:grid-cols-2 gap-6">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Họ tên bạn</label>
+                                            <input type="text" className="w-full px-4 py-3 rounded-xl bg-gray-50 border-gray-200 border focus:border-orange-500 transition-all outline-none" name="contactName" value={formData.contactName} onChange={handleChange} required />
+                                        </div>
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Số điện thoại</label>
+                                            <input type="text" className="w-full px-4 py-3 rounded-xl bg-gray-50 border-gray-200 border focus:border-orange-500 transition-all outline-none" name="contactPhone" value={formData.contactPhone} onChange={handleChange} required />
+                                        </div>
+                                        <div className="md:col-span-2">
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Email (Để nhận thông báo)</label>
+                                            <input type="email" className="w-full px-4 py-3 rounded-xl bg-gray-50 border-gray-200 border focus:border-orange-500 transition-all outline-none" name="contactEmail" value={formData.contactEmail} onChange={handleChange} placeholder="example@gmail.com" />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <h3 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                                        <span className="w-6 h-6 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center text-xs">2</span>
+                                        Thông tin thú cưng
+                                    </h3>
+                                    <div className="space-y-6">
+                                        <div className="grid md:grid-cols-2 gap-6">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">Tên thú cưng</label>
+                                                <input type="text" className="w-full px-4 py-3 rounded-xl bg-gray-50 border-gray-200 border focus:border-orange-500 transition-all outline-none" name="petName" value={formData.petName} onChange={handleChange} placeholder="VD: Miu, Lu..." required />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">Loại</label>
+                                                <select className="w-full px-4 py-3 rounded-xl bg-gray-50 border-gray-200 border focus:border-orange-500 transition-all outline-none cursor-pointer" name="petType" value={formData.petType} onChange={handleChange}>
+                                                    <option value="DOG">Chó</option>
+                                                    <option value="CAT">Mèo</option>
+                                                    <option value="OTHER">Khác</option>
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid md:grid-cols-2 gap-6">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">Thời gian thất lạc</label>
+                                                <input type="datetime-local" className="w-full px-4 py-3 rounded-xl bg-gray-50 border-gray-200 border focus:border-orange-500 transition-all outline-none" name="lostDate" value={formData.lostDate} onChange={handleChange} required />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-2">Khu vực nhìn thấy lần cuối</label>
+                                                <input type="text" className="w-full px-4 py-3 rounded-xl bg-gray-50 border-gray-200 border focus:border-orange-500 transition-all outline-none" name="lastSeenLocation" value={formData.lastSeenLocation} onChange={handleChange} placeholder="Số nhà, đường, quận..." required />
+                                            </div>
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Hình ảnh nhận dạng</label>
+                                            <input type="file" className="w-full px-4 py-2.5 rounded-xl bg-gray-50 border-gray-200 border focus:border-orange-500 transition-all outline-none file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-orange-50 file:text-orange-700 hover:file:bg-orange-100" onChange={handleFileChange} />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-700 mb-2">Mô tả đặc điểm chi tiết</label>
+                                            <textarea className="w-full px-4 py-3 rounded-xl bg-gray-50 border-gray-200 border focus:border-orange-500 transition-all outline-none min-h-[100px]" name="petDescription" value={formData.petDescription} onChange={handleChange} placeholder="Màu lông, giống loài, cân nặng, đặc điểm riêng..." required></textarea>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button type="submit" className="w-full bg-orange-600 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-orange-700 transition-all disabled:opacity-50 flex justify-center items-center gap-2" disabled={uploading}>
+                                    {uploading ? 'Đang tải ảnh...' : <>🚀 GỬI YÊU CẦU NGAY</>}
+                                </button>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>
+
+            {/* Payment Modal */}
+            {showPaymentModal && (
+                <PaymentModal
+                    requestId={lastRequestId}
+                    onClose={() => {
+                        setShowPaymentModal(false);
+                        setLastRequestId(null);
+                    }}
+                    onPaymentSuccess={() => {
+                        setShowPaymentModal(false);
+                        setLastRequestId(null);
+                        fetchRequests();
+                    }}
+                />
+            )}
         </div>
     );
 };

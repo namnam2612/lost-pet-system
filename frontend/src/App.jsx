@@ -3,9 +3,11 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'r
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Home from './pages/user/Home';
+import Search from './pages/user/Search';
 import PostDetail from './pages/user/PostDetail';
 import ServiceRequest from './pages/user/ServiceRequest';
 import AdminDashboard from './pages/admin/AdminDashboard';
+import AdminServiceRequests from './pages/admin/AdminServiceRequests';
 import Login from './pages/auth/Login';
 import Register from './pages/auth/Register';
 import MyPosts from './pages/user/MyPosts';
@@ -38,8 +40,10 @@ function App() {
                 <div className="flex-grow">
                     <Routes>
                         <Route path="/" element={<Home />} />
+                        <Route path="/blogs/:id" element={<PostDetail />} />
                         <Route path="/posts/:id" element={<PostDetail />} />
                         <Route path="/request-service" element={<ServiceRequest />} />
+                        <Route path="/search" element={<Search />} />
                         <Route path="/login" element={<Login />} />
                         <Route path="/register" element={<Register />} />
                         <Route
@@ -63,6 +67,14 @@ function App() {
                             element={
                                 <RequireAdmin>
                                     <AdminDashboard />
+                                </RequireAdmin>
+                            }
+                        />
+                        <Route
+                            path="/admin/service-requests"
+                            element={
+                                <RequireAdmin>
+                                    <AdminServiceRequests />
                                 </RequireAdmin>
                             }
                         />

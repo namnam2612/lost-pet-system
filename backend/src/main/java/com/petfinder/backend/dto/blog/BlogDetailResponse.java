@@ -4,6 +4,7 @@ import java.time.LocalDate;
 
 import com.petfinder.backend.entity.enums.BlogStatus;
 import com.petfinder.backend.entity.enums.BlogType;
+import com.petfinder.backend.dto.user.UserSummary; 
 
 public class BlogDetailResponse {
 
@@ -24,6 +25,7 @@ public class BlogDetailResponse {
     private String ward;
     private String detailAddress;
     private String imageUrl;
+    private UserSummary user;
 
     // ===== GETTER / SETTER =====
 
@@ -122,4 +124,12 @@ public class BlogDetailResponse {
     public void setImageUrl(String imageUrl) {
         this.imageUrl = imageUrl;
     }
-}
+
+    public UserSummary getUser() {
+        return user;
+    }
+
+    public void setUser(UserSummary user) {
+        this.user = user;
+    }
+} 

@@ -3,6 +3,7 @@ import axios from 'axios';
 import { Link } from 'react-router-dom';
 import { Eye, CheckCircle, DollarSign } from 'lucide-react';
 import { API_URL } from '../../api/config';
+import Pagination from '../../components/Pagination';
 
 const AdminDashboard = () => {
     const [requests, setRequests] = useState([]);
@@ -10,23 +11,21 @@ const AdminDashboard = () => {
     const [activeTab, setActiveTab] = useState('requests');
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [selectedPost, setSelectedPost] = useState(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage] = useState(10);
 
     const STATUS_MAP = {
         'PENDING': 'CHỜ XỬ LÝ',
-        'PROCESSING': 'ĐANG XỬ LÝ',
+        'PROCESSING': 'ĐANG TÌM KIẾM',
         'CANCELLED': 'ĐÃ HỦY',
         'COMPLETED': 'HOÀN THÀNH',
         'FOUND': 'ĐÃ TÌM THẤY',
         'NOT_FOUND': 'KHÔNG TÌM THẤY',
-        'PAYMENT_INVALID': 'THANH TOÁN LỖI',
-        'REFUNDED_NOT_FOUND': 'ĐÃ HOÀN TIỀN',
-        'REFUNDED_PAYMENT_INVALID': 'ĐÃ HOÀN TIỀN',
-        'REFUNDED': 'ĐÃ HOÀN TIỀN'
+        'PAYMENT_INVALID': 'THANH TOÁN LỖI'
     };
 
     const PAYMENT_MAP = {
         'PAID': 'ĐÃ THANH TOÁN',
-        'REFUNDED': 'ĐÃ HOÀN TIỀN',
         'PENDING_VERIFICATION': 'CHỜ DUYỆT',
         'PAYMENT_INVALID': 'THANH TOÁN LỖI',
         'UNPAID': 'CHƯA THANH TOÁN'
@@ -48,6 +47,15 @@ const AdminDashboard = () => {
     };
 
     useEffect(() => { fetchData(); }, []);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [activeTab]);
+
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    const currentRequests = requests.slice(indexOfFirstItem, indexOfLastItem);
+    const currentPosts = posts.slice(indexOfFirstItem, indexOfLastItem);
 
     const updateRequestStatus = async (id, status) => {
         if (!window.confirm("Xác nhận đổi trạng thái?")) return;
@@ -80,25 +88,6 @@ const AdminDashboard = () => {
         }
     };
 
-    const openRefundModal = (req) => {
-        setSelectedRequest(req);
-        setShowRefundModal(true);
-    };
-
-    const [showRefundModal, setShowRefundModal] = useState(false);
-
-    const refundRequest = async (id) => {
-        if (!window.confirm('Xác nhận hoàn tiền cho yêu cầu này?')) return;
-        try {
-            await axios.put(`${API_URL}/services/${id}/refund`);
-            setShowRefundModal(false);
-            setSelectedRequest(null);
-            fetchData();
-        } catch (error) {
-            alert('Lỗi khi hoàn tiền');
-        }
-    };
-
     const deletePost = async (id) => {
         if (!window.confirm("Xóa bài viết?")) return;
         try {
@@ -121,6 +110,43 @@ const AdminDashboard = () => {
         } catch (error) {
             console.error("Lỗi cập nhật trạng thái:", error);
             alert("Lỗi cập nhật trạng thái: " + (error.response?.data?.message || error.message));
+        }
+    };
+
+    // Open post detail by fetching full blog detail (ensures `user` field is present)
+    const openPostDetail = async (id) => {
+        try {
+            const res = await axios.get(`${API_URL}/blogs/${id}`);
+            const b = res.data;
+            const mapped = {
+                id: b.id ?? b.blogId,
+                imageUrl: b.imageUrl || '',
+                title: b.title || `${b.petType || ''} ${b.blogType || ''}`.trim(),
+                location: b.province || b.location || '',
+                status: (b.blogStatus ? (b.blogStatus === 'FOUND' ? 'FOUND' : 'LOST') : (b.status === 'FOUND' ? 'FOUND' : 'LOST')),
+                petType: b.petType || '',
+                description: b.description || '',
+                user: b.user || null
+            };
+            setSelectedPost(mapped);
+        } catch (err) {
+            // fallback to legacy posts endpoint
+            try {
+                const res = await axios.get(`${API_URL}/posts/${id}`);
+                const p = res.data;
+                setSelectedPost({
+                    id: p.id,
+                    imageUrl: p.imageUrl || '',
+                    title: p.title,
+                    location: p.location || '',
+                    status: p.status || 'LOST',
+                    petType: p.petType || '',
+                    description: p.description || '',
+                    user: p.user || null
+                });
+            } catch (err2) {
+                alert('Không thể tải chi tiết bài viết');
+            }
         }
     };
 
@@ -182,7 +208,7 @@ const AdminDashboard = () => {
                                 {activeTab === 'requests' ? (
                                     requests.length === 0 ? (
                                         <tr><td colSpan="7" className="p-8 text-center text-gray-500">Chưa có yêu cầu nào</td></tr>
-                                    ) : requests.map(req => (
+                                    ) : currentRequests.map(req => (
                                         <tr key={req.id} className="hover:bg-gray-50 transition-colors">
                                             <td className="p-5 font-bold text-gray-900">#{req.id}</td>
                                             <td className="p-5">
@@ -202,8 +228,7 @@ const AdminDashboard = () => {
                                             </td>
                                             <td className="p-5">
                                                 <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider ${req.paymentStatus === 'PAID' ? 'bg-green-100 text-green-700' :
-                                                    req.paymentStatus === 'REFUNDED' ? 'bg-purple-100 text-purple-700' :
-                                                        req.paymentStatus === 'PENDING_VERIFICATION' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
+                                                    req.paymentStatus === 'PENDING_VERIFICATION' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
                                                     }`}>
                                                     {PAYMENT_MAP[req.paymentStatus] || 'CHƯA THANH TOÁN'}
                                                 </span>
@@ -242,7 +267,7 @@ const AdminDashboard = () => {
                                                                     <button onClick={() => decideFound(req.id, true)} className="p-2 bg-green-50 text-green-600 rounded-lg hover:bg-green-100 font-bold text-xs" title="Đã tìm thấy">
                                                                         Đã tìm thấy
                                                                     </button>
-                                                                    <button onClick={() => openRefundModal(req)} className="p-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 font-bold text-xs" title="Chưa tìm thấy">
+                                                                    <button onClick={() => decideFound(req.id, false)} className="p-2 bg-orange-50 text-orange-600 rounded-lg hover:bg-orange-100 font-bold text-xs" title="Chưa tìm thấy">
                                                                         Chưa tìm thấy
                                                                     </button>
                                                                 </>
@@ -260,7 +285,7 @@ const AdminDashboard = () => {
                                     ))) : (
                                     posts.length === 0 ? (
                                         <tr><td colSpan="5" className="p-8 text-center text-gray-500">Chưa có bài đăng nào</td></tr>
-                                    ) : posts.map(post => (
+                                    ) : currentPosts.map(post => (
                                         <tr key={post.id} className="hover:bg-gray-50 transition-colors">
                                             <td className="p-5 font-bold text-gray-900">#{post.id}</td>
                                             <td className="p-5">
@@ -278,7 +303,7 @@ const AdminDashboard = () => {
                                             </td>
                                             <td className="p-5">
                                                 <div className="flex gap-2">
-                                                    <button onClick={() => setSelectedPost(post)} className="p-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 font-bold text-xs">
+                                                    <button onClick={() => openPostDetail(post.id)} className="p-2 bg-gray-50 text-gray-600 rounded-lg hover:bg-gray-100 font-bold text-xs">
                                                         <Eye size={16} />
                                                     </button>
                                                     {post.status === 'LOST' && (
@@ -295,6 +320,14 @@ const AdminDashboard = () => {
                                     )))}
                             </tbody>
                         </table>
+                    </div>
+                    <div className="pb-6">
+                        <Pagination
+                            itemsPerPage={itemsPerPage}
+                            totalItems={activeTab === 'requests' ? requests.length : posts.length}
+                            paginate={setCurrentPage}
+                            currentPage={currentPage}
+                        />
                     </div>
                 </div>
             </div>
@@ -364,32 +397,10 @@ const AdminDashboard = () => {
                                 {selectedRequest.paymentStatus === 'PAID' && selectedRequest.status !== 'COMPLETED' && (
                                     <>
                                         <button onClick={() => { decideFound(selectedRequest.id, true); setSelectedRequest(null); }} className="px-6 py-3 rounded-xl font-bold bg-green-600 text-white hover:bg-green-700 shadow-lg">Đã tìm thấy</button>
-                                        {/* Open refund modal first; perform refund when admin confirms inside modal */}
-                                        <button onClick={() => { setShowRefundModal(true); }} className="px-6 py-3 rounded-xl font-bold bg-red-600 text-white hover:bg-red-700 shadow-lg">Chưa tìm thấy</button>
+                                        <button onClick={() => { decideFound(selectedRequest.id, false); setSelectedRequest(null); }} className="px-6 py-3 rounded-xl font-bold bg-orange-600 text-white hover:bg-orange-700 shadow-lg">Chưa tìm thấy</button>
                                     </>
                                 )}
                             </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {showRefundModal && selectedRequest && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4" onClick={() => { setShowRefundModal(false); setSelectedRequest(null); }}>
-                    <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md p-6" onClick={e => e.stopPropagation()}>
-                        <div className="flex justify-between items-center mb-4">
-                            <h3 className="text-lg font-bold">Hoàn tiền cho yêu cầu #{selectedRequest.id}</h3>
-                            <button onClick={() => { setShowRefundModal(false); setSelectedRequest(null); }} className="text-gray-500">×</button>
-                        </div>
-                        <div className="mb-4">
-                            <div className="text-xs text-gray-400 uppercase font-bold">Người liên hệ</div>
-                            <div className="font-semibold">{selectedRequest.contactName}</div>
-                            <div className="text-sm text-gray-600">{selectedRequest.contactPhone}</div>
-                            {selectedRequest.contactEmail && <div className="text-sm text-gray-600">{selectedRequest.contactEmail}</div>}
-                        </div>
-                        <div className="flex justify-end gap-2">
-                            <button onClick={() => { setShowRefundModal(false); setSelectedRequest(null); }} className="px-4 py-2 rounded-lg border">Hủy</button>
-                            <button onClick={() => refundRequest(selectedRequest.id)} className="px-4 py-2 rounded-lg bg-red-600 text-white">Hoàn tiền</button>
                         </div>
                     </div>
                 </div>

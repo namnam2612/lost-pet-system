@@ -29,7 +29,7 @@ public class SearchRequest {
     @Column(name = "image_url")
     private String imageUrl;
 
-    private String status = "PENDING"; // Trạng thái tìm kiếm
+    private String status = "CREATED"; // Trạng thái tìm kiếm
 
     // 👇 MỚI THÊM: Trạng thái thanh toán
     @Column(name = "payment_status")
@@ -46,7 +46,7 @@ public class SearchRequest {
     // 👇 MỚI THÊM: Link tới User để lấy thông tin ngân hàng khi Refund
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id")
-    @JsonIgnoreProperties({"password", "createdAt", "hibernateLazyInitializer"})
+    @JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
     private User user;
 
     // --- Constructor rỗng ---

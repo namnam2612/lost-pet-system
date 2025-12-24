@@ -9,6 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.petfinder.backend.dto.blog.BlogDetailResponse;
 import com.petfinder.backend.dto.blog.BlogListResponse;
 import com.petfinder.backend.dto.blog.BlogResponse;
+import com.petfinder.backend.dto.user.UserSummary;
 import com.petfinder.backend.entity.Blog;
 import com.petfinder.backend.entity.Location;
 import com.petfinder.backend.entity.Pet;
@@ -159,6 +160,11 @@ public class BlogService {
             res.setDistrict(blog.getLocation().getDistrict());
             res.setWard(blog.getLocation().getWard());
             res.setDetailAddress(blog.getLocation().getDetailAddress());
+        }
+
+        if (blog.getUser() != null) {
+            var u = blog.getUser();
+            res.setUser(new UserSummary(u.getId(), u.getName(), u.getPhone(), u.getEmail(), u.getRole()));
         }
 
         return res;

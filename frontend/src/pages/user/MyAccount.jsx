@@ -1,15 +1,39 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import axios from 'axios';
 import { API_URL } from '../../api/config';
 import { useAuth } from '../../context/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
+import PaymentModal from '../../components/PaymentModal';
+import Pagination from '../../components/Pagination';
 
 const MyAccount = () => {
     const { user, logout, setError, error } = useAuth();
     const [form, setForm] = useState({ name: '', email: '', phone: '' });
     const [savedInfo, setSavedInfo] = useState(null);
     const [loading, setLoading] = useState(false);
+    const [myRequests, setMyRequests] = useState([]);
+    const [showPaymentModal, setShowPaymentModal] = useState(false);
+    const [selectedRequestId, setSelectedRequestId] = useState(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage] = useState(5);
     const navigate = useNavigate();
+
+    const fetchMyRequests = useCallback(() => {
+        if (!user) return;
+        // Đổi sang lấy tất cả và lọc theo SĐT để đồng bộ với trang ServiceRequest
+        // Giúp hiển thị cả các đơn bị mất liên kết user_id nhưng trùng SĐT
+        axios.get(`${API_URL}/services`)
+            .then(res => {
+                const allData = Array.isArray(res.data) ? res.data : [];
+                // Lọc những đơn có SĐT trùng với SĐT của user
+                const filtered = allData.filter(req => user.phone && req.contactPhone === user.phone);
+
+                // Sắp xếp: Mới nhất lên đầu
+                const sorted = filtered.sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+                setMyRequests(sorted);
+            })
+            .catch(err => console.error(err));
+    }, [user?.phone]);
 
     useEffect(() => {
         if (user) {
@@ -21,8 +45,44 @@ const MyAccount = () => {
                 name: user.name || '', email: user.email || '', phone: user.phone || '',
                 bankName: user.bankName || '', bankAccountNumber: user.bankAccountNumber || '', bankAccountHolder: user.bankAccountHolder || '', qrImageUrl: user.qrImageUrl || ''
             });
+
+            // Fetch user requests to show status
+            fetchMyRequests();
         }
-    }, [user]);
+    }, [user, fetchMyRequests]);
+
+    // Helper: Lấy thông tin hiển thị cho trạng thái yêu cầu
+    const getRequestStatusInfo = (status) => {
+        switch (status) {
+            case 'CREATED': return { label: 'Mới tạo', className: 'bg-gray-100 text-gray-700' };
+            case 'PENDING': return { label: 'Chờ xử lý', className: 'bg-yellow-100 text-yellow-800' }; // Hỗ trợ data cũ
+            case 'PROCESSING': return { label: 'Đang tìm kiếm', className: 'bg-blue-100 text-blue-700' };
+            case 'FOUND': return { label: 'Đã tìm thấy', className: 'bg-green-100 text-green-700' };
+            case 'NOT_FOUND': return { label: 'Không tìm thấy', className: 'bg-orange-100 text-orange-700' };
+            case 'REJECTED': return { label: 'Từ chối', className: 'bg-red-100 text-red-700' };
+            case 'CANCELLED': return { label: 'Đã hủy', className: 'bg-gray-200 text-gray-500' };
+            default: return { label: status, className: 'bg-gray-100 text-gray-700' };
+        }
+    };
+
+    // Helper: Lấy thông tin hiển thị cho trạng thái thanh toán
+    const getPaymentStatusInfo = (status) => {
+        switch (status) {
+            case 'PAID': return { label: 'Đã thanh toán', className: 'bg-green-100 text-green-700' };
+            case 'PENDING_VERIFICATION': return { label: 'Chờ duyệt', className: 'bg-yellow-100 text-yellow-800' };
+            case 'PAYMENT_INVALID': return { label: 'Thanh toán lỗi', className: 'bg-red-100 text-red-700' };
+            case 'UNPAID': return { label: 'Chưa thanh toán', className: 'bg-gray-100 text-gray-500' };
+            default:
+                // Xử lý trường hợp null/undefined coi như chưa thanh toán
+                return { label: 'Chưa thanh toán', className: 'bg-gray-100 text-gray-500' };
+        }
+    };
+
+    // Pagination Logic
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    const currentRequests = myRequests.slice(indexOfFirstItem, indexOfLastItem);
+    const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
     const save = () => {
         if (!user?.id) return;
@@ -236,14 +296,92 @@ const MyAccount = () => {
                         </div>
                     </div>
                 </div>
+
+                {/* My Requests Section */}
+                <div className="mt-10 border-t border-gray-100 pt-10">
+                    <h2 className="text-2xl font-black text-gray-900 mb-6">Lịch sử yêu cầu cứu hộ</h2>
+                    {myRequests.length === 0 ? (
+                        <p className="text-gray-500">Bạn chưa gửi yêu cầu nào.</p>
+                    ) : (
+                        <div className="overflow-x-auto">
+                            <table className="w-full text-left border-collapse">
+                                <thead>
+                                    <tr className="bg-gray-50 border-b border-gray-100">
+                                        <th className="p-4 text-xs font-bold text-gray-400 uppercase">ID</th>
+                                        <th className="p-4 text-xs font-bold text-gray-400 uppercase">Ngày tạo</th>
+                                        <th className="p-4 text-xs font-bold text-gray-400 uppercase">Trạng thái</th>
+                                        <th className="p-4 text-xs font-bold text-gray-400 uppercase">Thanh toán</th>
+                                        <th className="p-4 text-xs font-bold text-gray-400 uppercase">Hành động</th>
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-gray-100">
+                                    {currentRequests.map(req => (
+                                        <tr key={req.id}>
+                                            <td className="p-4 font-bold">#{req.id}</td>
+                                            <td className="p-4 text-sm text-gray-600">{new Date(req.createdAt).toLocaleDateString('vi-VN')}</td>
+                                            <td className="p-4">
+                                                {(() => {
+                                                    const { label, className } = getRequestStatusInfo(req.status);
+                                                    return (
+                                                        <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${className}`}>
+                                                            {label}
+                                                        </span>
+                                                    );
+                                                })()}
+                                            </td>
+                                            <td className="p-4">
+                                                {(() => {
+                                                    const { label, className } = getPaymentStatusInfo(req.paymentStatus);
+                                                    return (
+                                                        <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${className}`}>
+                                                            {label}
+                                                        </span>
+                                                    );
+                                                })()}
+                                            </td>
+                                            <td className="p-4">
+                                                {(req.paymentStatus === 'UNPAID' || req.paymentStatus === 'PAYMENT_INVALID' || !req.paymentStatus) && req.status !== 'REJECTED' && req.status !== 'CANCELLED' && (
+                                                    <button
+                                                        onClick={() => { setSelectedRequestId(req.id); setShowPaymentModal(true); }}
+                                                        className="px-4 py-2 rounded-lg bg-orange-600 text-white text-xs font-bold hover:bg-orange-700 shadow-sm transition-all"
+                                                    >
+                                                        {req.paymentStatus === 'PAYMENT_INVALID' ? 'Gửi lại Bill' : 'Thanh toán'}
+                                                    </button>
+                                                )}
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                    <Pagination
+                        itemsPerPage={itemsPerPage}
+                        totalItems={myRequests.length}
+                        paginate={paginate}
+                        currentPage={currentPage}
+                    />
+                </div>
             </div>
+
+            {showPaymentModal && (
+                <PaymentModal
+                    requestId={selectedRequestId}
+                    onClose={() => {
+                        setShowPaymentModal(false);
+                        setSelectedRequestId(null);
+                    }}
+                    onPaymentSuccess={() => {
+                        setShowPaymentModal(false);
+                        setSelectedRequestId(null);
+                        fetchMyRequests();
+                    }}
+                />
+            )}
         </div>
     );
 };
 
 export default MyAccount;
-
-
-
 
 

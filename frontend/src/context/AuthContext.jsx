@@ -40,6 +40,22 @@ export const AuthProvider = ({ children }) => {
         return () => window.removeEventListener('pf_auth_user_updated', handleStorageUpdate);
     }, []);
 
+    // Tự động logout khi token hết hạn (Backend trả về 401)
+    useEffect(() => {
+        const interceptor = axios.interceptors.response.use(
+            (response) => response,
+            (error) => {
+                if (error.response?.status === 401) {
+                    setUser(null);
+                    localStorage.removeItem(STORAGE_KEY);
+                }
+                return Promise.reject(error);
+            }
+        );
+
+        return () => axios.interceptors.response.eject(interceptor);
+    }, []);
+
     const login = async ({ email, password }) => {
         setLoading(true); setError('');
         try {
@@ -76,4 +92,3 @@ export const AuthProvider = ({ children }) => {
 };
 
 export const useAuth = () => useContext(AuthContext);
-

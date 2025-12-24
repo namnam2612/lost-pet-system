@@ -125,6 +125,29 @@ const ServiceRequest = () => {
         }, 150);
     }
 
+    const getStatusLabel = (status) => {
+        switch (status) {
+            case 'CREATED': return 'Mới tạo';
+            case 'PENDING': return 'Chờ xử lý';
+            case 'PROCESSING': return 'Đang tìm kiếm';
+            case 'FOUND': return 'Đã tìm thấy';
+            case 'NOT_FOUND': return 'Không tìm thấy';
+            case 'REJECTED': return 'Từ chối';
+            default: return status;
+        }
+    };
+
+    const getStatusColor = (status) => {
+        switch (status) {
+            case 'CREATED': return '#6B7280'; // Gray
+            case 'PROCESSING': return '#3B82F6'; // Blue
+            case 'FOUND': return '#10B981'; // Green
+            case 'NOT_FOUND': return '#F97316'; // Orange
+            case 'REJECTED': return '#EF4444'; // Red
+            default: return '#F59E0B'; // Yellow/Default
+        }
+    };
+
     return (
         <div className="min-h-screen bg-gray-50 pt-28 pb-20">
             <div className="max-w-3xl mx-auto px-6">
@@ -162,7 +185,9 @@ const ServiceRequest = () => {
                                             <div key={r.id} className="bg-gray-50 p-4 rounded-xl border border-gray-100">
                                                 <div className="flex items-center justify-between mb-2">
                                                     <div className="text-sm font-semibold">Yêu cầu #{r.id}</div>
-                                                    <div className="text-xs font-bold px-2 py-1 rounded-full text-white" style={{ background: r.status === 'PENDING' ? '#F59E0B' : r.status === 'PROCESSING' ? '#3B82F6' : '#10B981' }}>{r.status}</div>
+                                                    <div className="text-xs font-bold px-2 py-1 rounded-full text-white" style={{ background: getStatusColor(r.status) }}>
+                                                        {getStatusLabel(r.status)}
+                                                    </div>
                                                 </div>
                                                 <div className="text-sm text-gray-600 mb-1">Khu vực: {r.lastSeenLocation}</div>
                                                 <div className="text-sm text-gray-600 mb-1">Mô tả: {r.petDescription?.slice(0, 200)}</div>

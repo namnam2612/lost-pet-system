@@ -4,6 +4,7 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -13,7 +14,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.petfinder.backend.entity.Payment;
 import com.petfinder.backend.entity.SearchRequest;
 import com.petfinder.backend.repository.PaymentRepository;
 import com.petfinder.backend.repository.SearchRequestRepository;
@@ -36,7 +36,7 @@ public class SearchRequestController {
     @PostMapping
     public SearchRequest createRequest(@RequestBody SearchRequest request) {
         request.setCreatedAt(LocalDateTime.now());
-        request.setStatus("PENDING");
+        request.setStatus("CREATED");
         // Ensure default price if not provided
         if (request.getPrice() == null) request.setPrice(500000L);
 
@@ -74,20 +74,19 @@ public class SearchRequestController {
     // API: Admin xác nhận thanh toán -> cập nhật SearchRequest và tạo bản ghi Payment
     // PUT http://localhost:8080/api/services/1/payment with body: {status: 'PAID', billImageUrl: '...'}
     @PutMapping("/{id}/payment")
-    public SearchRequest updatePaymentStatus(@PathVariable Long id, @RequestBody PaymentRequest paymentRequest) {
+    public ResponseEntity<Void> updatePaymentStatus(@PathVariable Long id, @RequestBody PaymentRequest paymentRequest) {
+        System.out.println("DEBUG: Running FIXED version for id " + id);
         SearchRequest request = requestRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Request not found"));
-
-        System.out.println("[SearchRequestController] updatePaymentStatus called for id=" + id + " payload status=" + paymentRequest.getStatus() + " billImageUrl=" + paymentRequest.getBillImageUrl());
 
         // If admin explicitly sends a status field (e.g., {status: 'PAID' or 'PAYMENT_INVALID'}) then update paymentStatus
         if (paymentRequest.getStatus() != null) {
             String s = paymentRequest.getStatus().toUpperCase();
             request.setPaymentStatus(s);
 
-            // When admin confirms payment is VALID -> create a Payment and mark paymentStatus PAID
-            if ("PAID".equalsIgnoreCase(s)) {
-                // leave search 'status' unchanged; we only update paymentStatus
+            // Nếu Admin xác nhận ĐÃ THANH TOÁN, kích hoạt trạng thái ĐANG TÌM KIẾM (nếu đơn đang mới tạo)
+            if ("PAID".equalsIgnoreCase(s) && ("CREATED".equalsIgnoreCase(request.getStatus()) || "PENDING".equalsIgnoreCase(request.getStatus()))) {
+                request.setStatus("PROCESSING");
             }
 
             // If admin marks the bill as invalid, mark the search request so frontend can show refund option
@@ -107,29 +106,8 @@ public class SearchRequestController {
             }
         }
 
-        SearchRequest saved = requestRepository.save(request);
-
-        // create Payment record when status set to PAID (admin confirmed)
-        if (paymentRequest.getStatus() != null && "PAID".equalsIgnoreCase(paymentRequest.getStatus())) {
-            try {
-                Payment payment = new Payment();
-                payment.setService(saved);
-                payment.setAmount(saved.getPrice());
-                payment.setMethod("BANK_TRANSFER");
-                payment.setStatus("PAID");
-                payment.setBillImageUrl(paymentRequest.getBillImageUrl());
-                // save via repository
-                paymentRepository.save(payment);
-                System.out.println("[SearchRequestController] Created Payment record for service id=" + saved.getId());
-            } catch (Exception e) {
-                System.err.println("Failed to create payment record: " + e.getMessage());
-            }
-            // mark paymentStatus explicitly even if payment record save fails (so admin action is reflected)
-            saved.setPaymentStatus("PAID");
-            requestRepository.save(saved);
-        }
-
-        return saved;
+        requestRepository.save(request);
+        return ResponseEntity.ok().build();
     }
 
     // Admin decision: mark whether the missing pet was found or not
@@ -144,44 +122,6 @@ public class SearchRequestController {
         } else {
             // mark as NOT_FOUND but do not refund automatically
             request.setStatus("NOT_FOUND");
-        }
-
-        return requestRepository.save(request);
-    }
-
-    // Admin initiates refund: sets paymentStatus to REFUNDED and keeps status as NOT_FOUND
-    // PUT http://localhost:8080/api/services/{id}/refund
-    @PutMapping("/{id}/refund")
-    public SearchRequest refundPayment(@PathVariable Long id) {
-        SearchRequest request = requestRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Request not found"));
-
-        // Allow refund when previously paid or marked PAYMENT_INVALID
-        if (!"PAID".equalsIgnoreCase(request.getPaymentStatus()) && !"PAYMENT_INVALID".equalsIgnoreCase(request.getPaymentStatus())) {
-            throw new RuntimeException("Cannot refund a request that is not paid or invalid");
-        }
-
-        request.setPaymentStatus("REFUNDED");
-
-        // If the service was NOT_FOUND before refund, set combined state REFUNDED_NOT_FOUND
-        if ("NOT_FOUND".equalsIgnoreCase(request.getStatus())) {
-            request.setStatus("REFUNDED_NOT_FOUND");
-        } else if ("PAYMENT_INVALID".equalsIgnoreCase(request.getStatus())) {
-            request.setStatus("REFUNDED_PAYMENT_INVALID");
-        } else {
-            request.setStatus("REFUNDED");
-        }
-
-        // Create a refund Payment record (status REFUNDED)
-        try {
-            Payment refund = new Payment();
-            refund.setService(request);
-            refund.setAmount(request.getPrice());
-            refund.setMethod("REFUND");
-            refund.setStatus("REFUNDED");
-            paymentRepository.save(refund);
-        } catch (Exception e) {
-            System.err.println("Failed to create refund record: " + e.getMessage());
         }
 
         return requestRepository.save(request);

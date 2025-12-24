@@ -1,13 +1,15 @@
 import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import axios from 'axios';
-import { MapPin, ArrowRight, Phone } from 'lucide-react';
+import { MapPin, ArrowRight, Phone, User } from 'lucide-react';
 import { API_URL } from '../../api/config';
+import { useAuth } from '../../context/AuthContext';
 
 const PostDetail = () => {
     const { id } = useParams();
     const [post, setPost] = useState(null);
     const [loading, setLoading] = useState(true);
+    const { user: currentUser } = useAuth();
 
     useEffect(() => {
         setLoading(true);
@@ -15,14 +17,16 @@ const PostDetail = () => {
         axios.get(`${API_URL}/blogs/${id}`)
             .then(res => {
                 const b = res.data;
+                console.log("Blog Detail Data:", b);
                 const mapped = {
                     id: b.id,
                     title: b.title || `${b.petType || ''} ${b.status || ''}`.trim(),
                     description: b.description || '',
-                    location: b.location || '',
+                    location: b.location || b.province || '',
                     petType: b.petType || '',
-                    status: b.status === 'FOUND' ? 'FOUND' : 'LOST',
-                    imageUrl: b.imageUrl || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=1000&auto=format&fit=crop'
+                    status: (b.blogStatus ? b.blogStatus : b.status) === 'FOUND' ? 'FOUND' : 'LOST',
+                    imageUrl: b.imageUrl || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=1000&auto=format&fit=crop',
+                    user: b.user || null
                 };
                 setPost(mapped);
                 setLoading(false);
@@ -38,7 +42,8 @@ const PostDetail = () => {
                             location: p.location || '',
                             petType: p.petType || '',
                             status: p.status || 'LOST',
-                            imageUrl: p.imageUrl || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=1000&auto=format&fit=crop'
+                            imageUrl: p.imageUrl || 'https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=1000&auto=format&fit=crop',
+                            user: p.user || null
                         };
                         setPost(mapped);
                         setLoading(false);
@@ -49,6 +54,8 @@ const PostDetail = () => {
 
     if (loading) return <div className="text-center mt-20">Đang tải dữ liệu...</div>;
     if (!post) return <div className="text-center mt-20">Không tìm thấy bài viết!</div>;
+
+    const isOwner = currentUser && post.user && currentUser.id === post.user.id;
 
     return (
         <div className="min-h-screen bg-gray-50 pt-28 pb-20">
@@ -89,9 +96,47 @@ const PostDetail = () => {
                                 </div>
                             </div>
 
-                            <button className="w-full bg-orange-600 text-white font-bold py-4 rounded-xl shadow-lg hover:bg-orange-700 transition-all flex items-center justify-center gap-2" onClick={() => alert("Chức năng liên hệ đang phát triển!")}>
-                                <Phone size={20} /> Liên hệ chủ nuôi
-                            </button>
+                            <div className="mt-8 pt-8 border-t border-gray-100">
+                                {isOwner ? (
+                                    <div className="bg-orange-50 border border-orange-100 rounded-2xl p-6 text-center">
+                                        <h3 className="text-lg font-bold text-gray-900 mb-2">Đây là bài viết của bạn</h3>
+                                        <p className="text-gray-600 text-sm mb-4">Bạn có thể chỉnh sửa hoặc xóa bài viết này trong phần quản lý.</p>
+                                        <Link to="/my-posts" className="inline-flex items-center justify-center px-6 py-3 bg-orange-600 text-white font-bold rounded-xl hover:bg-orange-700 transition-all">
+                                            Quản lý bài viết
+                                        </Link>
+                                    </div>
+                                ) : (
+                                    <div>
+                                        <h3 className="text-lg font-bold text-gray-900 mb-4">Thông tin liên hệ</h3>
+                                        {post.user ? (
+                                            <div className="bg-white border border-gray-100 shadow-sm rounded-2xl p-5">
+                                                <div className="flex items-center gap-4 mb-4">
+                                                    <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center text-gray-500">
+                                                        <User size={24} />
+                                                    </div>
+                                                    <div>
+                                                        <div className="font-bold text-lg text-gray-900">{post.user.name || 'Người dùng'}</div>
+                                                        <div className="text-sm text-gray-500">Chủ bài đăng</div>
+                                                    </div>
+                                                </div>
+
+                                                {post.user.phone ? (
+                                                    <a href={`tel:${post.user.phone}`} className="flex items-center justify-center gap-2 w-full bg-green-600 text-white font-bold py-3 rounded-xl hover:bg-green-700 transition-all">
+                                                        <Phone size={20} />
+                                                        Gọi ngay: {post.user.phone}
+                                                    </a>
+                                                ) : (
+                                                    <div className="text-center text-gray-500 py-2 bg-gray-50 rounded-xl">
+                                                        Số điện thoại chưa được cung cấp
+                                                    </div>
+                                                )}
+                                            </div>
+                                        ) : (
+                                            <div className="text-center text-gray-500 bg-gray-50 p-4 rounded-xl">Thông tin người đăng không khả dụng.</div>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </div>
                 </div>

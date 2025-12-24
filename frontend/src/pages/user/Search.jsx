@@ -3,11 +3,14 @@ import axios from 'axios'
 import { Link } from 'react-router-dom'
 import { Search as SearchIcon, MapPin, Filter, ArrowRight } from 'lucide-react'
 import { API_URL } from '../../api/config'
+import Pagination from '../../components/Pagination'
 
 const SearchPage = () => {
     const [posts, setPosts] = useState([])
     const [loading, setLoading] = useState(true)
     const [filters, setFilters] = useState({ title: '', location: '', petType: '' })
+    const [currentPage, setCurrentPage] = useState(1)
+    const [itemsPerPage] = useState(12)
 
     const handleFilterChange = (e) => setFilters({ ...filters, [e.target.name]: e.target.value });
 
@@ -37,6 +40,12 @@ const SearchPage = () => {
             .catch(() => setPosts([]))
             .finally(() => setLoading(false))
     }
+
+    // Pagination Logic
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    const currentPosts = posts.slice(indexOfFirstItem, indexOfLastItem);
+    const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
     useEffect(() => { fetchPosts(); }, [])
 
@@ -80,7 +89,7 @@ const SearchPage = () => {
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
-                        {posts.map(post => (
+                        {currentPosts.map(post => (
                             <div key={post.id} className="group bg-white rounded-3xl overflow-hidden border border-gray-100 hover:shadow-2xl hover:-translate-y-2 transition-all duration-300">
                                 <div className="relative h-72 overflow-hidden">
                                     <Link to={`/${post.source === 'post' ? 'posts' : 'blogs'}/${post.id}`}>
@@ -110,6 +119,12 @@ const SearchPage = () => {
                         ))}
                     </div>
                 )}
+                <Pagination
+                    itemsPerPage={itemsPerPage}
+                    totalItems={posts.length}
+                    paginate={paginate}
+                    currentPage={currentPage}
+                />
             </div>
         </div>
     )

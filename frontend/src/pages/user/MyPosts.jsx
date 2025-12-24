@@ -4,6 +4,7 @@ import { API_URL } from '../../api/config';
 import { useAuth } from '../../context/AuthContext';
 import { Link } from 'react-router-dom';
 import { Edit, Trash, PlusCircle, MapPin } from 'lucide-react';
+import Pagination from '../../components/Pagination';
 
 const MyPosts = () => {
     const { user } = useAuth();
@@ -11,6 +12,8 @@ const MyPosts = () => {
     const [loading, setLoading] = useState(false);
     const [editingPost, setEditingPost] = useState(null);
     const [form, setForm] = useState({ title: '', description: '', location: '', petType: 'DOG', imageUrl: '', status: 'LOST' });
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage] = useState(6);
 
     const canAccess = useMemo(() => !!user?.id, [user]);
 
@@ -35,6 +38,12 @@ const MyPosts = () => {
     };
 
     useEffect(() => { fetchPosts(); }, [user?.id]);
+
+    // Pagination Logic
+    const indexOfLastItem = currentPage * itemsPerPage;
+    const indexOfFirstItem = indexOfLastItem - itemsPerPage;
+    const currentPosts = posts.slice(indexOfFirstItem, indexOfLastItem);
+    const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
     const startEdit = (post) => {
         setEditingPost(post);
@@ -106,7 +115,7 @@ const MyPosts = () => {
                     <div className="bg-white p-8 rounded-2xl shadow text-center text-gray-500">Bạn chưa có bài đăng nào.</div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {posts.map(post => (
+                        {currentPosts.map(post => (
                             <div key={post.id} className="bg-white rounded-2xl shadow border border-gray-100 p-5 space-y-3">
                                 <div className="flex gap-3">
                                     <img src={post.imageUrl || 'https://via.placeholder.com/120'} alt="" className="w-28 h-28 object-cover rounded-xl bg-gray-100" />
@@ -136,6 +145,12 @@ const MyPosts = () => {
                         ))}
                     </div>
                 )}
+                <Pagination
+                    itemsPerPage={itemsPerPage}
+                    totalItems={posts.length}
+                    paginate={paginate}
+                    currentPage={currentPage}
+                />
             </div>
 
             {editingPost && (
